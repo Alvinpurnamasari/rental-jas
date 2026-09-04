@@ -123,8 +123,8 @@
 
             <div id="customMessageContainer">
                 <label class="mb-2 block text-sm font-bold text-slate-700">Pesan Custom</label>
-                <textarea name="custom_message" rows="5" class="form-input" placeholder="Tulis pesan custom (jika tidak menggunakan template)">{{ old('custom_message') }}</textarea>
-                @error('custom_message') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <textarea name="custom_message_single" rows="5" class="form-input" placeholder="Tulis pesan custom (jika tidak menggunakan template)">{{ old('custom_message_single') }}</textarea>
+                @error('custom_message_single') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
 
             <div id="variantContainer" class="hidden">

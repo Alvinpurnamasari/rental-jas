@@ -108,6 +108,7 @@ class BroadcastCampaignController extends Controller
             'target_type' => ['required', 'in:all,branch,sales,rental_status,product,category,customer'],
             'template_id' => ['nullable', 'exists:broadcast_templates,id'],
             'custom_message' => $customMessageRule,
+            'custom_message_single' => ['nullable', 'string', 'max:2000'],
             'message_template' => ['nullable', 'string', 'max:2000'],
             'target_filters' => ['nullable', 'array'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
@@ -127,6 +128,10 @@ class BroadcastCampaignController extends Controller
             if ($hasEmpty) {
                 return back()->withErrors(['custom_message' => 'Semua variasi pesan harus diisi dan tidak boleh kosong.'])->withInput();
             }
+        }
+
+        if ($channel === 'in_app' && !empty($validated['custom_message_single'])) {
+            $validated['custom_message'] = $validated['custom_message_single'];
         }
 
         if ($channel === 'whatsapp') {
