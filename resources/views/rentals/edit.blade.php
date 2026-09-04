@@ -710,7 +710,4 @@ function rentalForm(rentalId) {
 }
 </script>
 @endpush
-</ï½œï½œDSMLï½œï½œparameter>
-</ï½œï½œDSMLï½œï½œinvoke>
-</ï½œï½œDSMLï½œï½œtool_calls>
 
