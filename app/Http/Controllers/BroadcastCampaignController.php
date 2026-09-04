@@ -116,6 +116,19 @@ class BroadcastCampaignController extends Controller
             'delay_seconds' => ['nullable', 'integer', 'min:0', 'max:3600'],
         ]);
 
+        if ($channel === 'whatsapp' && is_array($validated['custom_message'] ?? null)) {
+            $hasEmpty = false;
+            foreach ($validated['custom_message'] as $index => $message) {
+                if (!is_string($message) || trim($message) === '') {
+                    $hasEmpty = true;
+                    break;
+                }
+            }
+            if ($hasEmpty) {
+                return back()->withErrors(['custom_message' => 'Semua variasi pesan harus diisi dan tidak boleh kosong.'])->withInput();
+            }
+        }
+
         if ($channel === 'whatsapp') {
             if ($validated['recipient_type'] !== 'customer') {
                 return back()->withErrors(['channel' => 'Channel WhatsApp hanya bisa digunakan untuk target Customer.'])->withInput();

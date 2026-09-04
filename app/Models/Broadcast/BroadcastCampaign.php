@@ -216,10 +216,17 @@ class BroadcastCampaign extends Model
         }
 
         if ($this->template_id && $this->template) {
-            return $this->template->content;
+            return $this->template->content ?? '';
         }
 
-        return $this->custom_message ?? '';
+        if (is_array($this->custom_message)) {
+            $nonEmpty = array_values(array_filter($this->custom_message, fn ($m) => is_string($m) && $m !== ''));
+            if (count($nonEmpty) > 0) {
+                return $nonEmpty;
+            }
+        }
+
+        return '';
     }
 
     private function renderTemplate(string $template, array $recipient): string
@@ -241,9 +248,12 @@ class BroadcastCampaign extends Model
             return $this->renderTemplate($message, $recipient);
         }
 
-        if (is_array($message) && count($message) > 0) {
-            $variant = $message[array_rand($message)];
-            return $this->renderTemplate($variant, $recipient);
+        if (is_array($message)) {
+            $filtered = array_values(array_filter($message, fn ($m) => is_string($m) && $m !== ''));
+            if (count($filtered) > 0) {
+                $variant = $filtered[array_rand($filtered)];
+                return $this->renderTemplate($variant, $recipient);
+            }
         }
 
         return '';
