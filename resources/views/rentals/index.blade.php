@@ -125,7 +125,7 @@
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </a>
                                 @auth
-                                @if(auth()->user()->isSuperAdmin())
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                                 <a href="{{ route('rentals.edit', $rental) }}" class="action-btn" title="Edit">
                                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                                 </a>

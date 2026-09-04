@@ -40,7 +40,7 @@
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>
                     Kembali ke Penyewaan
                 </a>
-                @if(auth()->user()->isSuperAdmin())
+                @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                 <a href="{{ route('rentals.edit', $rental) }}" class="btn-secondary">
                     <i data-lucide="edit-2" class="w-4 h-4"></i>
                     Edit
