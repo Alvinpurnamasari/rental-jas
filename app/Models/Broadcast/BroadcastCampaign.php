@@ -248,6 +248,20 @@ class BroadcastCampaign extends Model
 
         return '';
     }
+
+    public function checkCompletion(): void
+    {
+        $total = $this->logs()->count();
+        $finished = $this->logs()->whereIn('status', ['submitted', 'sent', 'delivered', 'read', 'failed'])->count();
+
+        if ($finished > 0 && $finished === $total) {
+            $failed = $this->logs()->where('status', 'failed')->count();
+            $this->update([
+                'status' => $failed === $total ? 'failed' : 'completed',
+                'completed_at' => now(),
+            ]);
+        }
+    }
 }
 
 

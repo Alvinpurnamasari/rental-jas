@@ -71,5 +71,19 @@ class SendBroadcastMessage implements ShouldQueue
             'status' => 'failed',
             'error_message' => $exception->getMessage(),
         ]);
+
+        Log::channel('broadcast')->error('Broadcast send failed', [
+            'log_id' => $this->log->id,
+            'campaign_id' => $this->log->campaign_id,
+            'error' => $exception->getMessage(),
+        ]);
+
+        if ($this->log->campaign) {
+            $this->log->campaign->update([
+                'total_failed' => $this->log->campaign->logs()->where('status', 'failed')->count(),
+            ]);
+
+            $this->log->campaign->checkCompletion();
+        }
     }
 }

@@ -157,7 +157,7 @@ async function connectToWhatsApp() {
 
 async function updateLogStatus(messageId, status, phone, errorMessage = null) {
     try {
-        await fetch(`${LARAVEL_URL}/api/worker/update-status`, {
+        const response = await fetch(`${LARAVEL_URL}/api/worker/update-status`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -169,6 +169,15 @@ async function updateLogStatus(messageId, status, phone, errorMessage = null) {
                 status,
                 error_message: errorMessage,
             }),
+        });
+
+        const responseText = await response.text();
+        logger.info('update-status response', {
+            messageId,
+            status,
+            phone,
+            httpStatus: response.status,
+            body: responseText,
         });
     } catch (err) {
         logger.error('Failed to update log status', { error: err.message });

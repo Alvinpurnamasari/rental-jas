@@ -278,6 +278,24 @@ class BroadcastCampaignController extends Controller
             $log->update(['sent_at' => $log->sent_at ?? now()]);
         }
 
+        Log::channel('broadcast')->info('Worker status update received', [
+            'log_id' => $log->id,
+            'campaign_id' => $log->campaign_id,
+            'provider_message_id' => $validated['provider_message_id'],
+            'status' => $validated['status'],
+            'phone' => $validated['phone'],
+        ]);
+
+        $campaign = $log->campaign;
+        if ($campaign) {
+            $campaign->update([
+                'total_success' => $campaign->logs()->whereIn('status', ['submitted', 'sent', 'delivered', 'read'])->count(),
+                'total_failed' => $campaign->logs()->where('status', 'failed')->count(),
+            ]);
+
+            $campaign->checkCompletion();
+        }
+
         return response()->json(['status' => 'ok']);
     }
 }
