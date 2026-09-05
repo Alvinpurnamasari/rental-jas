@@ -327,7 +327,8 @@
                     </div>
                     <p class="text-xs text-slate-400 mt-1">Format: JPG/PNG. Maks 2MB. Biarkan kosong jika tidak ingin mengubah.</p>
                 </div>
-        </div>
+                @endif
+            </div>
 
         <!-- Diskon & Status & Catatan (existing) -->
         <div class="card p-6">
