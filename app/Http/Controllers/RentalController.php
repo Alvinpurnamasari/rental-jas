@@ -105,7 +105,7 @@ class RentalController extends Controller
     public function edit(Rental $rental)
     {
         $user = Auth::user();
-        if (!$user || !$user->isSuperAdmin()) abort(403);
+        if (!$user || !$user->canManage()) abort(403);
 
         $rental->load(["customer", "items.product", "guarantees"]);
         $customers = Customer::when(!$user->isSuperAdmin(), function($q) use ($user) {
@@ -126,7 +126,41 @@ class RentalController extends Controller
     public function update(Request $request, Rental $rental)
     {
         $user = Auth::user();
-        if (!$user || !$user->isSuperAdmin()) abort(403);
+        if (!$user || !$user->canManage()) abort(403);
+
+        $isLocked = $rental->payment_status === Rental::PAYMENT_PAID
+            || $rental->rental_status === Rental::STATUS_ACTIVE;
+
+        if ($isLocked) {
+            $lockedFieldErrors = [];
+
+            if ((string) $request->input('customer_id') !== (string) $rental->customer_id) {
+                $lockedFieldErrors[] = 'Pelanggan';
+            }
+            if ($request->input('rental_date') !== $rental->rental_date?->format('Y-m-d')) {
+                $lockedFieldErrors[] = 'Tanggal Sewa';
+            }
+            if ($request->input('return_due_date') !== $rental->return_due_date?->format('Y-m-d')) {
+                $lockedFieldErrors[] = 'Tanggal Pengembalian';
+            }
+
+            $originalItemMap = $rental->items()
+                ->get(['product_id', 'quantity'])
+                ->mapWithKeys(fn($i) => [(string) $i->product_id => (string) $i->quantity])
+                ->all();
+
+            $submittedItemMap = collect($request->input('items', []))
+                ->mapWithKeys(fn($i) => [(string) $i['product_id'] => (string) $i['quantity']])
+                ->all();
+
+            if (count($originalItemMap) !== count($submittedItemMap) || $originalItemMap !== $submittedItemMap) {
+                $lockedFieldErrors[] = 'Item Disewa (produk/jumlah)';
+            }
+
+            if ($lockedFieldErrors) {
+                abort(422, 'Field berikut sudah dikunci karena penyewaan sudah dibayar/berjalan dan tidak dapat diubah: ' . implode(', ', $lockedFieldErrors));
+            }
+        }
 
         $data = $request->validate([
             "customer_id" => "required|exists:customers,id",

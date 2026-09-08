@@ -27,10 +27,6 @@
                         <p class="mt-1 text-sm font-medium text-slate-900">{{ $campaign->name }}</p>
                     </div>
                     <div>
-                        <p class="text-xs font-semibold text-slate-500">Provider</p>
-                        <p class="mt-1 text-sm font-medium text-slate-900">{{ $campaign->provider }}</p>
-                    </div>
-                    <div>
                         <p class="text-xs font-semibold text-slate-500">Tipe Penerima</p>
                         <p class="mt-1 text-sm font-medium text-slate-900">{{ ucfirst($campaign->recipient_type) }}</p>
                     </div>
@@ -40,19 +36,13 @@
                     </div>
                     <div>
                         <p class="text-xs font-semibold text-slate-500">Status</p>
-                        <p class="mt-1 text-sm font-medium text-slate-900">{{ ucfirst($campaign->status) }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500">Scheduled At</p>
-                        <p class="mt-1 text-sm font-medium text-slate-900">{{ optional($campaign->scheduled_at)->format('d M Y H:i') ?? '-' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500">Jeda Antar Pesan</p>
                         <p class="mt-1 text-sm font-medium text-slate-900">
-                            @if($campaign->delay_seconds > 0)
-                                {{ $campaign->delay_seconds }} detik
+                            @if($campaign->status === 'completed')
+                                <span class="badge badge-green">Completed</span>
+                            @elseif($campaign->status === 'draft')
+                                <span class="badge badge-slate">Draft</span>
                             @else
-                                Tanpa jeda
+                                <span class="badge badge-blue">{{ ucfirst($campaign->status) }}</span>
                             @endif
                         </p>
                     </div>
@@ -61,51 +51,71 @@
 
             <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
                 <div class="mb-4 flex items-center justify-between">
-                    <h3 class="text-base font-extrabold text-slate-900">Log Pengiriman</h3>
-                    <span class="badge badge-blue">{{ $campaign->logs->count() }} log</span>
+                    <h3 class="text-base font-extrabold text-slate-900">Pesan</h3>
+                    <button type="button" id="editMessageBtn" class="text-xs font-semibold text-blue-600 hover:text-blue-700">
+                        Edit Pesan
+                    </button>
+                </div>
+                <div id="messageView">
+                    <p class="text-sm text-slate-700 whitespace-pre-wrap">{{ $campaign->resolveMessage() }}</p>
+                </div>
+                <div id="messageEdit" class="hidden">
+                    <textarea id="messageTextarea" rows="6" class="form-input w-full">{{ $campaign->resolveMessage() }}</textarea>
+                    <p class="mt-2 text-xs text-slate-500">Variabel tersedia: <code class="bg-slate-100 px-1 rounded">@{{name}}</code> <code class="bg-slate-100 px-1 rounded">@{{phone}}</code> <code class="bg-slate-100 px-1 rounded">@{{sender_name}}</code></p>
+                    <div class="mt-3 flex gap-2">
+                        <button type="button" id="saveMessageBtn" class="btn-primary px-4 py-2 text-sm">Simpan</button>
+                        <button type="button" id="cancelEditBtn" class="btn-ghost px-4 py-2 text-sm">Batal</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-base font-extrabold text-slate-900">Daftar Penerima</h3>
+                    <span class="badge badge-blue">{{ $campaign->logs->count() }} penerima</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                             <tr>
-                                <th class="px-4 py-2 font-semibold">Penerima</th>
+                                <th class="px-4 py-2 font-semibold">Nama</th>
                                 <th class="px-4 py-2 font-semibold">Phone</th>
                                 <th class="px-4 py-2 font-semibold">Status</th>
-                                <th class="px-4 py-2 font-semibold">Pesan</th>
-                                <th class="px-4 py-2 font-semibold">Sent At</th>
+                                <th class="px-4 py-2 font-semibold">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @forelse($campaign->logs as $log)
+                                @php
+                                    $recipient = $log->recipient;
+                                    $isPending = $log->status === 'pending';
+                                    $statusBadge = $isPending
+                                        ? '<span class="badge bg-slate-100 text-slate-700">Belum Dikirim</span>'
+                                        : '<span class="badge bg-green-100 text-green-700">Sudah Terkirim</span>';
+                                @endphp
                                 <tr class="hover:bg-slate-50/60">
                                     <td class="px-4 py-2">
-                                        <div class="font-medium text-slate-900">{{ $log->recipient?->name ?? '-' }}</div>
-                                        <div class="text-xs text-slate-500">{{ ucfirst($log->recipient_type) }}</div>
+                                        <div class="font-medium text-slate-900">{{ $recipient?->name ?? ($log->recipient_name ?? '-') }}</div>
                                     </td>
                                     <td class="px-4 py-2 text-slate-600">{{ $log->phone }}</td>
+                                    <td class="px-4 py-2">{!! $statusBadge !!}</td>
                                     <td class="px-4 py-2">
-                                        @php
-                                            $statusColors = [
-                                                'pending' => 'bg-slate-100 text-slate-700',
-                                                'queued' => 'bg-yellow-100 text-yellow-700',
-                                                'sent' => 'bg-blue-100 text-blue-700',
-                                                'delivered' => 'bg-green-100 text-green-700',
-                                                'read' => 'bg-emerald-100 text-emerald-700',
-                                                'failed' => 'bg-red-100 text-red-700',
-                                            ];
-                                            $color = $statusColors[$log->status] ?? 'bg-slate-100 text-slate-700';
-                                        @endphp
-                                        <span class="badge {{ $color }}">{{ ucfirst($log->status) }}</span>
+                                        @if($isPending)
+                                            <form method="POST" action="{{ route('broadcast-campaigns.send-to-customer', [$campaign, $recipient]) }}" class="inline">
+                                                @csrf
+                                                <button type="submit" class="btn-primary px-3 py-1.5 text-xs">
+                                                    Kirim
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-xs text-slate-400">Terkirim {{ optional($log->sent_at)->format('d M Y H:i') ?? '' }}</span>
+                                        @endif
                                     </td>
-                                    <td class="px-4 py-2 text-xs text-slate-500 max-w-xs truncate" title="{{ $log->rendered_message }}">
-                                        {{ $log->rendered_message }}
-                                    </td>
-                                    <td class="px-4 py-2 text-xs text-slate-500">{{ optional($log->sent_at)->format('d M Y H:i') ?? '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500">
-                                        Belum ada log pengiriman.
+                                    <td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500">
+                                        Belum ada penerima.
                                     </td>
                                 </tr>
                             @endforelse
@@ -121,19 +131,25 @@
                 <div class="space-y-3">
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-slate-600">Total Target</span>
-                        <span class="font-bold text-slate-900">{{ $campaign->total_target }}</span>
+                        <span class="font-bold text-slate-900">{{ $campaign->logs->count() }}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-slate-600">Berhasil</span>
-                        <span class="font-bold text-green-700">{{ $campaign->total_success }}</span>
+                        <span class="text-slate-600">Sudah Terkirim</span>
+                        <span class="font-bold text-green-700">{{ $campaign->logs->where('status', 'sent')->count() }}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-slate-600">Gagal</span>
-                        <span class="font-bold text-red-700">{{ $campaign->total_failed }}</span>
+                        <span class="text-slate-600">Belum Dikirim</span>
+                        <span class="font-bold text-slate-700">{{ $campaign->logs->where('status', 'pending')->count() }}</span>
                     </div>
                     <div class="mt-2 h-3 rounded-full bg-slate-100">
-                        <div class="h-3 rounded-full bg-blue-600 transition-all" style="width: {{ $campaign->total_target > 0 ? ($campaign->total_success / $campaign->total_target * 100) : 0 }}%"></div>
+                        @php
+                            $total = $campaign->logs->count();
+                            $sent = $campaign->logs->where('status', 'sent')->count();
+                            $percentage = $total > 0 ? round(($sent / $total) * 100) : 0;
+                        @endphp
+                        <div class="h-3 rounded-full bg-blue-600 transition-all" style="width: {{ $percentage }}%"></div>
                     </div>
+                    <p class="text-xs text-slate-500 text-right">{{ $percentage }}%</p>
                 </div>
             </div>
 
@@ -144,26 +160,6 @@
                     <p class="mt-2 text-xs text-slate-500">{{ $campaign->template->content }}</p>
                 </div>
             @endif
-
-            @if($campaign->custom_message)
-                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm">
-                    <h3 class="mb-3 text-base font-extrabold text-slate-900">Pesan Custom</h3>
-                    @if(is_array($campaign->custom_message) && count($campaign->custom_message) > 1)
-                        <div class="space-y-2">
-                            @foreach($campaign->custom_message as $index => $msg)
-                                <div class="flex items-start gap-2">
-                                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 text-xs font-semibold text-slate-600 flex-shrink-0 mt-0.5">{{ $index + 1 }}</span>
-                                    <p class="text-sm text-slate-700 whitespace-pre-wrap">{{ $msg }}</p>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-slate-700 whitespace-pre-wrap">
-                            {{ is_array($campaign->custom_message) ? ($campaign->custom_message[0] ?? '') : $campaign->custom_message }}
-                        </p>
-                    @endif
-                </div>
-            @endif
         </div>
     </div>
 </div>
@@ -172,7 +168,59 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    lucide.createIcons();
+    const editMessageBtn = document.getElementById('editMessageBtn');
+    const saveMessageBtn = document.getElementById('saveMessageBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const messageView = document.getElementById('messageView');
+    const messageEdit = document.getElementById('messageEdit');
+    const messageTextarea = document.getElementById('messageTextarea');
+    const campaignId = {{ $campaign->id }};
+
+    if (editMessageBtn) {
+        editMessageBtn.addEventListener('click', () => {
+            messageView.classList.add('hidden');
+            messageEdit.classList.remove('hidden');
+        });
+    }
+
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', () => {
+            messageView.classList.remove('hidden');
+            messageEdit.classList.add('hidden');
+        });
+    }
+
+    if (saveMessageBtn) {
+        saveMessageBtn.addEventListener('click', async () => {
+            const message = messageTextarea.value.trim();
+            if (!message) {
+                alert('Pesan tidak boleh kosong.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/broadcast-campaigns/${campaignId}/message`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ custom_message: message }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Gagal menyimpan pesan.');
+                }
+
+                messageView.querySelector('p').textContent = message;
+                messageView.classList.remove('hidden');
+                messageEdit.classList.add('hidden');
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+    }
 });
 </script>
 @endpush

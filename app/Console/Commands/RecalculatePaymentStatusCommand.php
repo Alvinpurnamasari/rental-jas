@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Rental;
+use App\Services\RentalService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -11,9 +12,9 @@ class RecalculatePaymentStatusCommand extends Command
     protected $signature = 'rentals:recalculate-payment-status
                             {--dry-run : Preview changes without writing to database}
                             {--force : Actually apply changes to database}';
-    protected $description = 'Recalculate paid_amount, fine_paid_amount, payment_status, and fine_status from actual payments';
+    protected $description = 'Recalculate paid_amount, fine_paid_amount, payment_status, fine_status, and change_amount from actual payments';
 
-    public function handle(): int
+    public function handle(RentalService $rentalService): int
     {
         $isDryRun = $this->option('dry-run');
         $isForce = $this->option('force');
@@ -23,7 +24,10 @@ class RecalculatePaymentStatusCommand extends Command
             return 1;
         }
 
-        $rentals = Rental::with('payments')->get();
+        $rentals = Rental::with('payments')->get()->filter(function ($rental) {
+            $refundGiven = (float) abs($rental->payments()->where('type', 'refund')->sum('amount'));
+            return $refundGiven == 0;
+        })->values();
 
         if ($rentals->isEmpty()) {
             $this->info('No rentals found.');
@@ -58,25 +62,26 @@ class RecalculatePaymentStatusCommand extends Command
                 $paymentStatus = Rental::PAYMENT_PAID;
             }
 
-            if ($fineAmount <= 0) {
-                $fineStatus = Rental::FINE_NONE;
-            } elseif ($totalPaidForFine <= 0) {
-                $fineStatus = Rental::FINE_UNPAID;
-            } elseif ($totalPaidForFine < $fineAmount) {
-                $fineStatus = Rental::FINE_PARTIAL;
-            } else {
-                $fineStatus = Rental::FINE_PAID;
-            }
-
-            $totalOwed = max(0, $rentalFee + $fineAmount);
             $totalPaidRaw = (float) $rental->payments()
                 ->where('type', '!=', 'refund')
                 ->sum('amount');
+            $totalOwed = max(0, $rentalFee + $fineAmount);
+            $grossOverpayment = max(0, $totalPaidRaw - $totalOwed);
+
             $refundGiven = (float) abs($rental->payments()
                 ->where('type', 'refund')
                 ->sum('amount'));
-            $overpayment = max(0, $totalPaidRaw - $totalOwed);
-            $changeAmount = max(0, $overpayment - $refundGiven);
+            $changeAmount = max(0, $grossOverpayment - $refundGiven);
+
+            if ($fineAmount <= 0) {
+                $fineStatus = Rental::FINE_NONE;
+            } elseif ($totalPaidRaw >= $totalOwed) {
+                $fineStatus = Rental::FINE_PAID;
+            } elseif ($totalPaidRaw > $rentalFee) {
+                $fineStatus = Rental::FINE_PARTIAL;
+            } else {
+                $fineStatus = Rental::FINE_UNPAID;
+            }
 
             $needsUpdate = false;
             $changes = [];
@@ -113,16 +118,20 @@ class RecalculatePaymentStatusCommand extends Command
                 'Fine Paid' => $rental->fine_paid_amount . ' → ' . $totalPaidForFine,
                 'Payment Status' => $rental->payment_status . ' → ' . $paymentStatus,
                 'Fine Status' => $rental->fine_status . ' → ' . $fineStatus,
+                'Change Amount' => $rental->change_amount . ' → ' . $changeAmount,
             ];
 
             if ($isForce) {
-                $rental->update([
-                    'paid_amount' => $totalPaidForRental,
-                    'fine_paid_amount' => $totalPaidForFine,
-                    'payment_status' => $paymentStatus,
-                    'fine_status' => $fineStatus,
-                    'change_amount' => $changeAmount,
-                ]);
+                DB::transaction(function () use ($rental, $totalPaidForRental, $totalPaidForFine, $paymentStatus, $fineStatus, $changeAmount, $remainingRental) {
+                    $rental->update([
+                        'paid_amount' => $totalPaidForRental,
+                        'fine_paid_amount' => $totalPaidForFine,
+                        'payment_status' => $paymentStatus,
+                        'fine_status' => $fineStatus,
+                        'change_amount' => $changeAmount,
+                        'remaining_amount' => $remainingRental,
+                    ]);
+                });
                 $updateCount++;
             }
         }
@@ -133,7 +142,7 @@ class RecalculatePaymentStatusCommand extends Command
         }
 
         $this->table(
-            ['ID', 'Invoice', 'Paid Amount', 'Fine Paid', 'Payment Status', 'Fine Status'],
+            ['ID', 'Invoice', 'Paid Amount', 'Fine Paid', 'Payment Status', 'Fine Status', 'Change Amount'],
             $rows
         );
 

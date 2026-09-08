@@ -67,8 +67,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
             Route::get('/', [BroadcastCampaignController::class, 'index'])->name('index');
             Route::get('/create', [BroadcastCampaignController::class, 'create'])->name('create');
             Route::post('/', [BroadcastCampaignController::class, 'store'])->name('store');
-            Route::get('/{broadcastCampaign}', [BroadcastCampaignController::class, 'show'])->name('show');
-            Route::delete('/{broadcastCampaign}', [BroadcastCampaignController::class, 'destroy'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin')->name('destroy');
+            Route::get('/{campaign}', [BroadcastCampaignController::class, 'show'])->name('show');
+            Route::post('/{campaign}/send/{customer}', [BroadcastCampaignController::class, 'sendToCustomer'])->name('send-to-customer');
+            Route::post('/{campaign}/message', [BroadcastCampaignController::class, 'updateMessage'])->name('update-message');
+            Route::delete('/{campaign}', [BroadcastCampaignController::class, 'destroy'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin')->name('destroy');
         });
 
     // ─── CUSTOMER (MASTER DATA) ──────────────────────────────────────

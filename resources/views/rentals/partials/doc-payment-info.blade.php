@@ -42,6 +42,12 @@
         <span class="payment-value" style="color:#B91C1C; font-weight:700;">Rp {{ number_format($rental->fine_amount, 0, ',', '.') }}</span>
         @endif
     </div>
+    @if($changeAmount === 0 && $rental->fine_amount > 0 && ($rental->fine_status === 'unpaid' || $rental->fine_status === 'partial'))
+    <div class="payment-row">
+        <span class="payment-label">Sisa Denda Belum Tertutup</span>
+        <span class="payment-value" style="color:#B91C1C; font-weight:700;">Rp {{ number_format(max(0, (float) ($rental->fine_amount ?? 0) - (float) ($rental->fine_paid_amount ?? 0)), 0, ',', '.') }}</span>
+    </div>
+    @endif
     @endif
     @if(!empty($rental->payments) && $rental->payments->count() > 0)
         @php

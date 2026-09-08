@@ -7,7 +7,6 @@ namespace App\Models\Broadcast;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\User;
-use App\Jobs\SendBroadcastMessage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -118,25 +117,16 @@ class BroadcastCampaign extends Model
         if (in_array('whatsapp', $channels, true)) {
             $whatsappRecipients = $recipients->filter(fn ($r) => $r['type'] === 'customer')->values();
 
-            $delaySeconds = (int) ($this->delay_seconds ?? 0);
+            foreach ($whatsappRecipients as $recipient) {
+                $renderedMessage = $this->resolveMessageForRecipient($recipient);
 
-            foreach ($whatsappRecipients as $index => $recipient) {
-                $renderedMessage = $this->pickRandomVariant($recipient);
-
-                $log = $this->logs()->create([
+                $this->logs()->create([
                     'recipient_type' => $recipient['type'],
                     'recipient_id' => $recipient['id'],
                     'phone' => $recipient['phone'],
                     'rendered_message' => $renderedMessage,
-                    'provider' => $this->provider,
                     'status' => 'pending',
                 ]);
-
-                $dispatch = SendBroadcastMessage::dispatch($log);
-
-                if ($delaySeconds > 0) {
-                    $dispatch->delay(now()->addSeconds($delaySeconds * $index));
-                }
             }
         }
     }
@@ -209,7 +199,7 @@ class BroadcastCampaign extends Model
         return $allRecipients->take($remaining);
     }
 
-    private function resolveMessage(): array|string
+    public function resolveMessage(): string
     {
         if ($this->message_template) {
             return $this->message_template;
@@ -222,52 +212,43 @@ class BroadcastCampaign extends Model
         if (is_array($this->custom_message)) {
             $nonEmpty = array_values(array_filter($this->custom_message, fn ($m) => is_string($m) && $m !== ''));
             if (count($nonEmpty) > 0) {
-                return $nonEmpty;
+                return $nonEmpty[0];
             }
+        }
+
+        if (is_string($this->custom_message)) {
+            return $this->custom_message;
         }
 
         return '';
     }
 
-    private function renderTemplate(string $template, array $recipient): string
+    public function resolveMessageForRecipient(array $recipient): string
     {
+        $message = $this->resolveMessage();
+
         $replacements = [
             '{{name}}' => $recipient['name'] ?? '',
             '{{phone}}' => $recipient['phone'] ?? '',
             '{{sender_name}}' => $this->created_by ? (\App\Models\User::find($this->created_by)?->name ?? '') : '',
         ];
 
-        return str_replace(array_keys($replacements), array_values($replacements), $template);
+        return str_replace(array_keys($replacements), array_values($replacements), $message);
     }
 
-    private function pickRandomVariant(array $recipient): string
+    public function renderTemplate(string $template, array $recipient): string
     {
-        $message = $this->resolveMessage();
-
-        if (is_string($message)) {
-            return $this->renderTemplate($message, $recipient);
-        }
-
-        if (is_array($message)) {
-            $filtered = array_values(array_filter($message, fn ($m) => is_string($m) && $m !== ''));
-            if (count($filtered) > 0) {
-                $variant = $filtered[array_rand($filtered)];
-                return $this->renderTemplate($variant, $recipient);
-            }
-        }
-
-        return '';
+        return $this->resolveMessageForRecipient($recipient);
     }
 
     public function checkCompletion(): void
     {
         $total = $this->logs()->count();
-        $finished = $this->logs()->whereIn('status', ['submitted', 'sent', 'delivered', 'read', 'failed'])->count();
+        $finished = $this->logs()->whereIn('status', ['sent'])->count();
 
         if ($finished > 0 && $finished === $total) {
-            $failed = $this->logs()->where('status', 'failed')->count();
             $this->update([
-                'status' => $failed === $total ? 'failed' : 'completed',
+                'status' => 'completed',
                 'completed_at' => now(),
             ]);
         }

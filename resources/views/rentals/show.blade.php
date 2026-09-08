@@ -488,10 +488,16 @@
                             <span class="text-slate-500">Status Denda</span>
                             <span class="font-semibold" :class="fineStatusClass(rental.fine_status)" x-text="fineStatusLabel(rental.fine_status)"></span>
                         </div>
-                        <template x-if="rental.overpayment > 0">
+                        <template x-if="rental.change_amount > 0">
                             <div class="flex items-center justify-between text-sm">
                                 <span class="text-slate-500">Kembalian</span>
-                                <span class="font-semibold" :class="rental.refund_given > 0 ? 'text-green-600' : 'text-amber-600'" x-text="rental.refund_given > 0 ? 'Kembalian sudah diberikan: ' + fmt(rental.refund_given) : 'Kembalian harus diberikan: ' + fmt(rental.overpayment)"></span>
+                                <span class="font-semibold" :class="rental.refund_given > 0 ? 'text-green-600' : 'text-amber-600'" x-text="rental.refund_given > 0 ? 'Kembalian sudah diberikan: ' + fmt(rental.refund_given) : 'Kembalian harus diberikan: ' + fmt(rental.change_amount)"></span>
+                            </div>
+                        </template>
+                        <template x-if="rental.change_amount === 0 && (rental.fine_status === 'unpaid' || rental.fine_status === 'partial')">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-slate-500">Sisa Denda Belum Tertutup</span>
+                                <span class="font-semibold text-red-600" x-text="fmt(Math.max(0, (Number(rental.fine_amount) || 0) - (Number(rental.fine_paid_amount) || 0)))"></span>
                             </div>
                         </template>
                         <div class="border-t border-slate-200 pt-4">
@@ -503,7 +509,7 @@
                     </div>
                 </div>
 
-                <template x-if="rental.overpayment > 0 && rental.refund_given === 0">
+                <template x-if="rental.change_amount > 0 && rental.refund_given === 0">
                     <div class="rounded-[20px] border border-amber-200 bg-amber-50 p-6 shadow-sm">
                         <div class="mb-4 flex items-center gap-2">
                             <div class="rounded-xl bg-amber-100 p-2 text-amber-600">
@@ -513,7 +519,7 @@
                             </div>
                             <h2 class="text-lg font-bold text-amber-700">Kembalian Pelanggan</h2>
                         </div>
-                        <p class="text-sm text-amber-700 mb-4">Ada kelebihan pembayaran sebesar <span class="font-bold" x-text="fmt(rental.overpayment)"></span>. Jangan lupa memberikan kembalian kepada pelanggan.</p>
+                        <p class="text-sm text-amber-700 mb-4">Ada kelebihan pembayaran sebesar <span class="font-bold" x-text="fmt(rental.change_amount)"></span>. Jangan lupa memberikan kembalian kepada pelanggan.</p>
                         <button type="button" @click="openRefundModal()" class="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-amber-700">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -658,7 +664,7 @@
                         <h3 class="text-lg font-bold text-slate-900">Konfirmasi Kembalian</h3>
                     </div>
 
-                    <p class="text-sm text-slate-600 mb-4">Anda akan mencatat pembayaran kembalian sebesar <span class="font-bold" x-text="fmt(rental.overpayment)"></span> untuk invoice <span x-text="rental.invoice_number"></span>.</p>
+                    <p class="text-sm text-slate-600 mb-4">Anda akan mencatat pembayaran kembalian sebesar <span class="font-bold" x-text="fmt(rental.change_amount)"></span> untuk invoice <span x-text="rental.invoice_number"></span>.</p>
 
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-6">
                         <div class="grid grid-cols-2 gap-2 text-sm">
@@ -672,7 +678,7 @@
                             </div>
                             <div class="col-span-2">
                                 <span class="text-slate-500">Jumlah Kembalian:</span>
-                                <span class="ml-2 font-bold text-amber-700" x-text="fmt(rental.overpayment)"></span>
+                                <span class="ml-2 font-bold text-amber-700" x-text="fmt(rental.change_amount)"></span>
                             </div>
                         </div>
                     </div>
@@ -1132,7 +1138,7 @@ displayedPhotoModal: null,
                     const confirmation = await Swal.fire({
                         icon: 'question',
                         title: 'Konfirmasi pembayaran kembalian?',
-                        text: 'Anda akan mencatat kembalian sebesar ' + this.fmt(this.rental.overpayment) + ' untuk ' + this.rental.invoice_number + '.',
+                        text: 'Anda akan mencatat kembalian sebesar ' + this.fmt(this.rental.change_amount) + ' untuk ' + this.rental.invoice_number + '.',
                         showCancelButton: true,
                         confirmButtonText: 'Ya, Beri Kembalian',
                         cancelButtonText: 'Batal',
@@ -1152,7 +1158,7 @@ displayedPhotoModal: null,
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                amount: this.rental.overpayment,
+                                amount: this.rental.change_amount,
                                 notes: 'Kembalian overpayment',
                             }),
                         });
@@ -1182,8 +1188,8 @@ displayedPhotoModal: null,
                                 };
                             }),
                             change_amount: Number(data.rental.change_amount ?? this.rental.change_amount ?? 0),
-                            overpayment: Number(data.rental.overpayment ?? 0),
-                            refund_given: Number(data.rental.refund_given ?? this.rental.overpayment ?? 0),
+                            overpayment: Number(data.rental.change_amount ?? this.rental.change_amount ?? 0),
+                            refund_given: Number(data.rental.refund_given ?? this.rental.refund_given ?? 0),
                         };
 
                         this.showRefundModal = false;

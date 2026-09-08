@@ -11,7 +11,19 @@
             Kembali ke Detail Penyewaan
         </a>
     </div>
-    <form method="POST" action="{{ route('rentals.update', $rental) }}" enctype="multipart/form-data" x-data="rentalForm({{ $rental->id }})" @submit.prevent="submitForm()">
+    @php
+        $isFormLocked = $rental->payment_status === \App\Models\Rental::PAYMENT_PAID
+            || $rental->rental_status === \App\Models\Rental::STATUS_ACTIVE;
+    @endphp
+
+    @if($isFormLocked)
+    <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex items-center gap-2">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>Form ini dikunci karena penyewaan sudah <strong>{{ $rental->payment_status === 'paid' ? 'dibayar' : 'berjalan' }}</strong>. Beberapa field tidak dapat diubah.</span>
+    </div>
+    @endif
+
+    <form method="POST" action="{{ route('rentals.update', $rental) }}" enctype="multipart/form-data" x-data="rentalForm({{ $rental->id }}, {{ $isFormLocked ? 'true' : 'false' }})" @submit.prevent="submitForm()">
         @csrf
         @method('PATCH')
 
@@ -32,6 +44,8 @@
                             class="form-input"
                             placeholder="Ketik nama atau nomor HP pelanggan..."
                             autocomplete="off"
+                            :disabled="formLocked"
+                            title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}"
                         >
                         <input type="hidden" name="customer_id" :value="selectedCustomer?.id ?? '{{ $rental->customer_id }}'" required>
 
@@ -70,27 +84,27 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                         </div>
-                        <form @submit.prevent="addCustomer()" class="p-6 space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-1.5 text-slate-700">Nama Lengkap <span class="text-red-400">*</span></label>
-                                <input type="text" x-model="newCustomer.name" class="form-input" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1.5 text-slate-700">Nomor Handphone <span class="text-red-400">*</span></label>
-                                <div class="input-group-phone">
-                                    <span class="input-group-phone__prefix">+62</span>
-                                    <input type="text"
-                                        x-model="newCustomer.phone"
-                                        class="input-group-phone__input"
-                                        placeholder="8123456789"
-                                        required
-                                        inputmode="numeric"
-                                        @input="filterPhoneInput($event)"
-                                        @keydown="preventNonNumeric($event)"
-                                        autocomplete="tel"
-                                    >
+                            <form @submit.prevent="addCustomer()" class="p-6 space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1.5 text-slate-700">Nama Lengkap <span class="text-red-400">*</span></label>
+                                    <input type="text" x-model="newCustomer.name" class="form-input" :required="showAddModal">
                                 </div>
-                            </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1.5 text-slate-700">Nomor Handphone <span class="text-red-400">*</span></label>
+                                    <div class="input-group-phone">
+                                        <span class="input-group-phone__prefix">+62</span>
+                                        <input type="text"
+                                            x-model="newCustomer.phone"
+                                            class="input-group-phone__input"
+                                            placeholder="8123456789"
+                                            :required="showAddModal"
+                                            inputmode="numeric"
+                                            @input="filterPhoneInput($event)"
+                                            @keydown="preventNonNumeric($event)"
+                                            autocomplete="tel"
+                                        >
+                                    </div>
+                                </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1.5 text-slate-700">Alamat</label>
                                 <textarea x-model="newCustomer.address" class="form-input" rows="2" placeholder="Alamat (opsional)"></textarea>
@@ -115,12 +129,12 @@
 
                 <div>
                     <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Tanggal Sewa <span class="text-red-400">*</span></label>
-                    <input type="date" name="rental_date" value="{{ old('rental_date', optional($rental->rental_date)->format('Y-m-d') ?? now()->format('Y-m-d')) }}" class="form-input" required>
+                    <input type="date" name="rental_date" value="{{ old('rental_date', optional($rental->rental_date)->format('Y-m-d') ?? now()->format('Y-m-d')) }}" class="form-input" required :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Tanggal Pengembalian</label>
-                    <input type="date" name="return_due_date" value="{{ old('return_due_date', optional($rental->return_due_date)->format('Y-m-d')) }}" class="form-input">
+                    <input type="date" name="return_due_date" value="{{ old('return_due_date', optional($rental->return_due_date)->format('Y-m-d')) }}" class="form-input" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
                 </div>
 
                 <div>
@@ -138,7 +152,7 @@
             <div id="products-container" class="space-y-3">
                 <template x-for="(item, index) in items" :key="index">
                     <div class="flex gap-3 items-center flex-wrap">
-                        <select x-model="item.product_id" :name="`items[${index}][product_id]`" class="form-input flex-1" :class="{ 'is-error': itemsErrors[index]?.product_id || itemsErrors[index]?.stock_exceeded }" @change="onProductChange(index)">
+                        <select x-model="item.product_id" :name="`items[${index}][product_id]`" class="form-input flex-1" :class="{ 'is-error': itemsErrors[index]?.product_id || itemsErrors[index]?.stock_exceeded }" @change="onProductChange(index)" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
                             <option value="">Pilih Produk</option>
                             @foreach ($products as $product)
                                 @php
@@ -169,16 +183,16 @@
                             <option value="4XL">4XL</option>
                         </select>
 
-                        <input type="number" x-model="item.quantity" :name="`items[${index}][quantity]`" value="1" min="1" class="form-input w-24" :class="{ 'is-error': itemsErrors[index]?.quantity || itemsErrors[index]?.stock_exceeded }" @input="onQtyInput(index)">
+                        <input type="number" x-model="item.quantity" :name="`items[${index}][quantity]`" value="1" min="1" class="form-input w-24" :class="{ 'is-error': itemsErrors[index]?.quantity || itemsErrors[index]?.stock_exceeded }" @input="onQtyInput(index)" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
                         <p x-show="itemsErrors[index]?.stock_exceeded" x-transition class="text-xs text-red-400 mt-1" x-text="itemsErrors[index]?.stock_message || 'Qty melebihi stok tersedia'"></p>
 
-                        <button type="button" x-show="items.length > 1" @click="removeItem(index)" class="btn-danger px-3 py-2">
+                        <button type="button" x-show="items.length > 1 && !formLocked" @click="removeItem(index)" class="btn-danger px-3 py-2" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </template>
             </div>
-            <button type="button" @click="addItem()" class="btn-secondary mt-3">
+            <button type="button" @click="addItem()" class="btn-secondary mt-3" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
                 <i data-lucide="plus" class="w-4 h-4"></i>
                 Tambah Produk
             </button>
@@ -231,8 +245,8 @@
                 <div class="sm:col-span-2">
                     <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Upload Foto {{ $guarantee->type === 'ktp' ? 'KTP' : 'SIM' }}</label>
 
-                    @if($guarantee && $guarantee->id_photo)
-                        <div class="mb-3" x-data="{ showPreview: false }">
+                     @if($guarantee && $guarantee->id_photo)
+                        <div class="mb-3">
                             <p class="text-xs text-slate-500 mb-2">Foto saat ini:</p>
                             <img src="{{ $guarantee->id_photo_url }}" alt="Foto Identitas" class="h-40 w-auto rounded-lg border border-slate-200 object-cover cursor-pointer" @click="showPreview = !showPreview">
                             <template x-if="showPreview">
@@ -241,7 +255,7 @@
                                 </div>
                             </template>
                             <label class="inline-flex items-center gap-2 mt-2 text-sm text-red-600 cursor-pointer">
-                                <input type="checkbox" name="remove_guarantee_photo" value="1" @change="handleRemovePhoto($event)">
+                                <input type="checkbox" name="remove_guarantee_photo" value="1">
                                 <span>Hapus foto</span>
                             </label>
                         </div>
@@ -402,9 +416,10 @@
 
 @push('scripts')
 <script>
-function rentalForm(rentalId) {
-    return {
-        submitting: false,
+ function rentalForm(rentalId, formLocked = false) {
+     return {
+         formLocked: formLocked,
+         submitting: false,
         items: [
             @php
                 $rentalItems = $rental->items;
@@ -430,6 +445,7 @@ function rentalForm(rentalId) {
         selectedCustomer: @json(['id' => $rental->customer_id, 'name' => $rental->customer->name, 'phone' => $rental->customer->phone]),
         customerDropdownOpen: false,
         showAddModal: false,
+        showPreview: false,
         addingCustomer: false,
         newCustomer: { name: '', phone: '', address: '', notes: '' },
         customers: @json($customers->map(fn($c) => ['id' => $c->id, 'name' => $c->name, 'phone' => $c->phone])),

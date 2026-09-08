@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Broadcast\BroadcastCampaign;
 use App\Models\Broadcast\BroadcastLog;
-use App\Models\Broadcast\BroadcastProviderConfig;
 use App\Models\Broadcast\BroadcastTemplate;
 use App\Models\Branch;
 use App\Models\Customer;
@@ -36,12 +35,6 @@ class BroadcastCampaignController extends Controller
             ->when(!$user->isSuperAdmin(), fn ($q) => $q->where('branch_id', $user->branch_id))
             ->get(['id', 'name', 'category', 'variables']);
 
-        $providers = BroadcastProviderConfig::query()
-            ->where('is_active', true)
-            ->orderByDesc('is_default')
-            ->orderBy('priority')
-            ->get(['id', 'provider_key', 'label', 'is_default']);
-
         $branches = $user->isSuperAdmin()
             ? Branch::orderBy('name')->get(['id', 'name'])
             : Branch::where('id', $user->branch_id)->get(['id', 'name']);
@@ -62,7 +55,6 @@ class BroadcastCampaignController extends Controller
 
         return view('broadcast_campaigns.create', [
             'templates' => $templates,
-            'providers' => $providers,
             'branches' => $branches,
             'customers' => $customers,
             'users' => $users,
@@ -92,22 +84,19 @@ class BroadcastCampaignController extends Controller
         $user = $request->user();
 
         $channel = $request->input('channel');
-        $providerRule = $channel === 'whatsapp'
-            ? ['required', 'string', 'max:120']
-            : ['nullable', 'string', 'max:120'];
 
         $customMessageRule = $channel === 'whatsapp'
-            ? ['required', 'array', 'min:1']
+            ? ['nullable', 'string', 'max:2000']
             : ['nullable', 'string', 'max:2000'];
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'channel' => ['required', 'in:in_app,whatsapp'],
-            'provider' => $providerRule,
+            'provider' => ['nullable', 'string', 'max:120'],
             'recipient_type' => ['required', 'in:customer,user,both'],
             'target_type' => ['required', 'in:all,branch,sales,rental_status,product,category,customer'],
             'template_id' => ['nullable', 'exists:broadcast_templates,id'],
-            'custom_message' => $customMessageRule,
+            'custom_message' => ['nullable', 'string', 'max:2000'],
             'custom_message_single' => ['nullable', 'string', 'max:2000'],
             'message_template' => ['nullable', 'string', 'max:2000'],
             'target_filters' => ['nullable', 'array'],
@@ -116,19 +105,6 @@ class BroadcastCampaignController extends Controller
             'recipient_ids.*' => ['integer'],
             'delay_seconds' => ['nullable', 'integer', 'min:0', 'max:3600'],
         ]);
-
-        if ($channel === 'whatsapp' && is_array($validated['custom_message'] ?? null)) {
-            $hasEmpty = false;
-            foreach ($validated['custom_message'] as $index => $message) {
-                if (!is_string($message) || trim($message) === '') {
-                    $hasEmpty = true;
-                    break;
-                }
-            }
-            if ($hasEmpty) {
-                return back()->withErrors(['custom_message' => 'Semua variasi pesan harus diisi dan tidak boleh kosong.'])->withInput();
-            }
-        }
 
         if ($channel === 'in_app' && !empty($validated['custom_message_single'])) {
             $validated['custom_message'] = $validated['custom_message_single'];
@@ -174,31 +150,89 @@ class BroadcastCampaignController extends Controller
 
         $validated['created_by'] = $user->id;
         $validated['branch_id'] = $validated['branch_id'] ?? $user->branch_id;
-        $validated['status'] = $validated['scheduled_at'] ?? null ? 'scheduled' : 'draft';
+        $validated['status'] = 'draft';
         $validated['type'] = 'manual';
         $validated['channels'] = $channels;
-        $validated['provider'] = $validated['provider'] ?? 'in_app';
-        $validated['delay_seconds'] = (int) ($validated['delay_seconds'] ?? 0);
+        $validated['provider'] = $validated['provider'] ?? ($channel === 'in_app' ? 'in_app' : null);
+        $validated['delay_seconds'] = $channel === 'whatsapp' ? 0 : (int) ($validated['delay_seconds'] ?? 0);
 
         $campaign = BroadcastCampaign::create($validated);
 
-        if (!$campaign->scheduled_at) {
-            $campaign->queueMessages();
-        }
+        $campaign->queueMessages();
 
         return redirect()
             ->route('broadcast-campaigns.show', $campaign)
             ->with('success', 'Campaign broadcast berhasil dibuat.');
     }
 
-    public function show(Request $request, BroadcastCampaign $broadcastCampaign)
+    public function show(Request $request, BroadcastCampaign $campaign)
     {
-        $campaign = $broadcastCampaign->load(['logs.recipient', 'template', 'creator', 'branch']);
+        $campaign = $campaign->load(['logs.recipient', 'template', 'creator', 'branch']);
 
         return view('broadcast_campaigns.show', compact('campaign'));
     }
 
-    public function destroy(Request $request, BroadcastCampaign $broadcastCampaign)
+    public function sendToCustomer(Request $request, BroadcastCampaign $campaign, Customer $customer)
+    {
+        if ($campaign->status === 'completed') {
+            return back()->with('error', 'Campaign ini sudah selesai.');
+        }
+
+        $log = $campaign->logs()
+            ->where('recipient_type', 'customer')
+            ->where('recipient_id', $customer->id)
+            ->first();
+
+        if (!$log) {
+            return back()->with('error', 'Customer ini bukan bagian dari campaign ini.');
+        }
+
+        if ($log->status === 'sent') {
+            return back()->with('info', 'Pesan sudah dikirim ke customer ini.');
+        }
+
+        $recipient = [
+            'name' => $customer->name,
+            'phone' => $customer->phone,
+        ];
+
+        $message = $campaign->resolveMessageForRecipient($recipient);
+        $encodedMessage = urlencode($message);
+        $phone = preg_replace('/\D/', '', $customer->phone);
+        if (str_starts_with($phone, '0')) {
+            $phone = '62' . substr($phone, 1);
+        }
+
+        $waUrl = "https://wa.me/{$phone}?text={$encodedMessage}";
+
+        $log->update([
+            'status' => 'sent',
+            'sent_at' => now(),
+        ]);
+
+        $campaign->checkCompletion();
+
+        return redirect()->away($waUrl);
+    }
+
+    public function updateMessage(Request $request, BroadcastCampaign $campaign)
+    {
+        if ($campaign->status === 'completed') {
+            return response()->json(['error' => 'Campaign ini sudah selesai.'], 400);
+        }
+
+        $validated = $request->validate([
+            'custom_message' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $campaign->update([
+            'custom_message' => $validated['custom_message'],
+        ]);
+
+        return response()->json(['success' => true, 'message' => $campaign->resolveMessage()]);
+    }
+
+    public function destroy(Request $request, BroadcastCampaign $campaign)
     {
         $user = $request->user();
 
@@ -206,9 +240,9 @@ class BroadcastCampaignController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        DB::transaction(function () use ($broadcastCampaign) {
-            BroadcastLog::where('campaign_id', $broadcastCampaign->id)->delete();
-            $broadcastCampaign->delete();
+        DB::transaction(function () use ($campaign) {
+            BroadcastLog::where('campaign_id', $campaign->id)->delete();
+            $campaign->delete();
         });
 
         return response()->json(['status' => 'ok']);

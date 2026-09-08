@@ -93,18 +93,7 @@
 
             <div id="whatsappFields">
                 <div>
-                    <label class="mb-2 block text-sm font-bold text-slate-700">Provider WhatsApp</label>
-                <select name="provider" class="form-input">
-                    <option value="">Pilih provider</option>
-                    @foreach($providers as $provider)
-                        <option value="{{ $provider->provider_key }}" @selected(old('provider') === $provider->provider_key)>{{ $provider->label }} @if($provider->is_default) (Default) @endif</option>
-                    @endforeach
-                </select>
-                    @error('provider') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                </div>
-
-                <div>
-                    <label class="mb-2 block text-sm font-bold text-slate-700">Template Pesan</label>
+                    <label class="mb-2 block text-sm font-bold text-slate-700">Template Pesan (Opsional)</label>
                     <select name="template_id" id="template_id" class="form-input">
                         <option value="">Pilih template (opsional)</option>
                         @foreach($templates as $template)
@@ -122,39 +111,9 @@
             </div>
 
             <div id="customMessageContainer">
-                <label class="mb-2 block text-sm font-bold text-slate-700">Pesan Custom</label>
-                <textarea name="custom_message_single" rows="5" class="form-input" placeholder="Tulis pesan custom (jika tidak menggunakan template)">{{ old('custom_message_single') }}</textarea>
-                @error('custom_message_single') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-            </div>
-
-            <div id="variantContainer" class="hidden">
-                <div class="flex items-center justify-between mb-2">
-                    <label class="block text-sm font-bold text-slate-700">Variasi Pesan (WhatsApp)</label>
-                    <button type="button" id="addVariantBtn" class="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                        + Tambah Variasi
-                    </button>
-                </div>
-                <div id="variantsList" class="space-y-3">
-                </div>
-                <p class="mt-2 text-xs text-slate-500">Variabel yang tersedia: <code class="bg-slate-100 px-1 rounded">@{{ name }}</code> <code class="bg-slate-100 px-1 rounded">@{{ phone }}</code> <code class="bg-slate-100 px-1 rounded">@{{ sender_name }}</code></p>
+                <label class="mb-2 block text-sm font-bold text-slate-700">Pesan</label>
+                <textarea name="custom_message" rows="5" class="form-input" placeholder="Tulis pesan (jika tidak menggunakan template). Variabel: @{{name}}, @{{phone}}, @{{sender_name}}">{{ old('custom_message') }}</textarea>
                 @error('custom_message') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-            </div>
-
-            <div>
-                <label class="mb-2 block text-sm font-bold text-slate-700">Jeda Antar Pesan (WhatsApp)</label>
-                <select name="delay_seconds" class="form-input">
-                    <option value="0" {{ old('delay_seconds', '30') == '0' ? 'selected' : '' }}>Tanpa jeda</option>
-                    <option value="30" {{ old('delay_seconds', '30') == '30' ? 'selected' : '' }}>30 detik</option>
-                    <option value="60" {{ old('delay_seconds', '30') == '60' ? 'selected' : '' }}>1 menit</option>
-                    <option value="300" {{ old('delay_seconds', '30') == '300' ? 'selected' : '' }}>5 menit</option>
-                    <option value="custom" {{ old('delay_seconds') == 'custom' ? 'selected' : '' }}>Custom...</option>
-                </select>
-                <div id="customDelayContainer" class="mt-2 {{ old('delay_seconds') == 'custom' ? '' : 'hidden' }}">
-                    <input type="number" name="delay_seconds_custom" value="{{ old('delay_seconds_custom') }}" min="0" max="3600" class="form-input" placeholder="Masukkan jeda dalam detik (0-3600)">
-                    @error('delay_seconds_custom') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                </div>
-                @error('delay_seconds') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                <p class="mt-1 text-xs text-slate-500">Jeda ini diterapkan per pesan untuk menghindari deteksi spam WhatsApp.</p>
             </div>
 
             <div>
@@ -212,9 +171,6 @@ const templateContent = document.getElementById('templateContent');
 const templateVariables = document.getElementById('templateVariables');
 const channelInputs = document.querySelectorAll('input[name="channel"]');
 const whatsappFields = document.getElementById('whatsappFields');
-const variantContainer = document.getElementById('variantContainer');
-const variantsList = document.getElementById('variantsList');
-const addVariantBtn = document.getElementById('addVariantBtn');
 const customMessageContainer = document.getElementById('customMessageContainer');
 
 const validCombinations = {
@@ -258,56 +214,6 @@ function updateWhatsappFields() {
     }
 }
 
-function updateVariantFields() {
-    if (variantContainer && customMessageContainer) {
-        if (isWhatsappSelected()) {
-            variantContainer.classList.remove('hidden');
-            customMessageContainer.classList.add('hidden');
-            
-            if (variantsList.children.length === 0) {
-                addVariant();
-            }
-        } else {
-            variantContainer.classList.add('hidden');
-            customMessageContainer.classList.remove('hidden');
-        }
-    }
-}
-
-function addVariant() {
-    if (!variantsList) return;
-    
-    const index = variantsList.children.length;
-    const variantId = 'variant_' + Date.now() + '_' + index;
-    
-    const div = document.createElement('div');
-    div.className = 'flex gap-2 items-start';
-    div.innerHTML = `
-        <textarea name="custom_message[]" rows="3" class="form-input flex-1" placeholder="Variasi pesan #${index + 1} (contoh: Halo @{{ name }}, ada promo!)"></textarea>
-        <button type="button" class="remove-variant-btn mt-1 text-red-500 hover:text-red-700" data-variant-id="${variantId}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-        </button>
-    `;
-    
-    variantsList.appendChild(div);
-    
-    div.querySelector('.remove-variant-btn').addEventListener('click', function () {
-        if (variantsList.children.length > 1) {
-            div.remove();
-            updateVariantNumbers();
-        } else {
-            alert('Minimal 1 variasi pesan.');
-        }
-    });
-}
-
-function updateVariantNumbers() {
-    const variants = variantsList.querySelectorAll('textarea[name="custom_message[]"]');
-    variants.forEach((textarea, index) => {
-        textarea.placeholder = `Variasi pesan #${index + 1} (contoh: Halo @{{ name }}, ada promo!)`;
-    });
-}
-
 function updateTargetOptions() {
     const recipientType = recipientTypeSelect.value;
     const allowedTargets = validCombinations[recipientType] || [];
@@ -332,7 +238,6 @@ function updateTargetOptions() {
 
     updateFilters();
     updateWhatsappFields();
-    updateVariantFields();
 }
 
 function updateFilters() {
@@ -388,10 +293,6 @@ channelInputs.forEach(input => {
     });
 });
 
-if (addVariantBtn) {
-    addVariantBtn.addEventListener('click', addVariant);
-}
-
 recipientTypeSelect.addEventListener('change', updateTargetOptions);
 targetTypeSelect.addEventListener('change', updateFilters);
 templateIdSelect.addEventListener('change', updateTemplatePreview);
@@ -431,30 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateRecipientTypeLock();
     updateTargetOptions();
     lucide.createIcons();
-
-    const delaySelect = document.querySelector('select[name="delay_seconds"]');
-    const customDelayContainer = document.getElementById('customDelayContainer');
-    const customDelayInput = document.querySelector('input[name="delay_seconds_custom"]');
-
-    if (delaySelect && customDelayContainer) {
-        delaySelect.addEventListener('change', () => {
-            if (delaySelect.value === 'custom') {
-                customDelayContainer.classList.remove('hidden');
-                if (customDelayInput) customDelayInput.focus();
-            } else {
-                customDelayContainer.classList.add('hidden');
-            }
-        });
-    }
-
-    const form = document.querySelector('form[action="{{ route('broadcast-campaigns.store') }}"]');
-    if (form && delaySelect) {
-        form.addEventListener('submit', () => {
-            if (delaySelect.value === 'custom' && customDelayInput) {
-                customDelayInput.name = 'delay_seconds';
-            }
-        });
-    }
 });
 </script>
 @endpush

@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Guarantee;
+use App\Models\Broadcast\BroadcastLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
@@ -350,6 +351,13 @@ class CustomerController extends Controller
             if ($hasGuarantees) $parts[] = 'jaminan';
             return back()->with('error', 'Customer memiliki riwayat ' . implode(', ', $parts) . ' (termasuk data yang sudah dihapus). Hapus permanen tidak diizinkan.');
         }
+
+        BroadcastLog::where('recipient_type', 'customer')
+            ->where('recipient_id', $customer->id)
+            ->update([
+                'customer_id' => null,
+                'recipient_name' => $customer->name,
+            ]);
 
         try {
             $customer->forceDelete();
