@@ -423,33 +423,6 @@
                                 </span>
                             </button>
                         </form>
-
-                        {{-- Demo accounts (keep existing behavior) --}}
-                        @if (app()->environment('local'))
-                            <div class="mt-6">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex-1 h-px bg-slate-200"></div>
-                                    <div class="text-xs font-semibold text-slate-500">🔑 Akun Demo</div>
-                                    <div class="flex-1 h-px bg-slate-200"></div>
-                                </div>
-                                <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    @foreach([
-                                        ['Super Admin', 'superadmin@jasrental.id'],
-                                        ['Admin Toko',  'admin.pusat@jasrental.id'],
-                                        ['Sales',       'budi.santoso@jasrental.id'],
-                                    ] as [$role, $email])
-                                        <button
-                                            type="button"
-                                            onclick="document.getElementById('email').value='{{ $email }}';document.getElementById('password').value='password';"
-                                            class="group rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-left transition duration-150 hover:border-blue-300 hover:shadow-sm"
-                                        >
-                                            <div class="text-[11px] font-extrabold text-slate-800">{{ $role }}</div>
-                                            <div class="text-[10px] mt-1 text-slate-500 truncate">{{ $email }}</div>
-                                        </button>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
                     </div>
 
                     {{-- Footer --}}
