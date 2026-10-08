@@ -93,13 +93,24 @@
 
             <div id="whatsappFields">
                 <div>
-                    <label class="mb-2 block text-sm font-bold text-slate-700">Template Pesan (Opsional)</label>
+                    <div class="mb-2 flex items-center justify-between gap-3">
+                        <label class="block text-sm font-bold text-slate-700">
+                            Template Pesan
+                        </label>
+                    
+                        <span class="text-xs font-semibold text-slate-400">
+                            Opsional
+                        </span>
+                    </div>
                     <select name="template_id" id="template_id" class="form-input">
                         <option value="">Pilih template (opsional)</option>
                         @foreach($templates as $template)
                             <option value="{{ $template->id }}" @selected(old('template_id') == $template->id)>{{ $template->name }} ({{ $template->category }})</option>
                         @endforeach
                     </select>
+                    <p class="mt-1.5 text-xs text-slate-500">
+                        Pilih template jika ingin menggunakan pesan yang sudah disimpan.
+                    </p>
                     @error('template_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
 
@@ -111,10 +122,31 @@
             </div>
 
             <div id="customMessageContainer">
-                <label class="mb-2 block text-sm font-bold text-slate-700">Pesan</label>
-                <textarea name="custom_message" rows="5" class="form-input" placeholder="Tulis pesan (jika tidak menggunakan template). Variabel: @{{name}}, @{{phone}}, @{{sender_name}}">{{ old('custom_message') }}</textarea>
-                @error('custom_message') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <div class="mb-2 flex items-center justify-between gap-3">
+                    <label class="block text-sm font-bold text-slate-700">
+                        Pesan Custom
+                    </label>
+            
+                    <span class="text-xs font-semibold text-slate-400">
+                        Isi jika tidak menggunakan template
+                    </span>
+                </div>
+            
+                <textarea
+                    name="custom_message"
+                    rows="5"
+                    class="form-input"
+                    placeholder="Tulis pesan custom di sini. Variabel: @{{name}}, @{{phone}}, @{{sender_name}}">{{ old('custom_message') }}</textarea>
+            
+                <p class="mt-1.5 text-xs text-slate-500">
+                    Tulis pesan sendiri jika tidak menggunakan template.
+                </p>
+            
+                @error('custom_message')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
             </div>
+
 
             <div>
                 <label class="mb-2 block text-sm font-bold text-slate-700">Jadwalkan Pengiriman (Opsional)</label>
@@ -268,8 +300,15 @@ function updateFilters() {
 
 function updateTemplatePreview() {
     const templateId = templateIdSelect.value;
+
     if (!templateId) {
         templatePreview.classList.add('hidden');
+
+        // Tampilkan pesan custom jika tidak memakai template
+        if (customMessageContainer) {
+            customMessageContainer.classList.remove('hidden');
+        }
+
         return;
     }
 
@@ -277,13 +316,20 @@ function updateTemplatePreview() {
     if (!template) return;
 
     templateContent.textContent = template.content;
+
     if (template.variables && template.variables.length > 0) {
         templateVariables.textContent = 'Variabel: ' + template.variables.join(', ');
         templateVariables.classList.remove('hidden');
     } else {
         templateVariables.classList.add('hidden');
     }
+
     templatePreview.classList.remove('hidden');
+
+    // Sembunyikan pesan custom karena template sudah dipilih
+    if (customMessageContainer) {
+        customMessageContainer.classList.add('hidden');
+    }
 }
 
 channelInputs.forEach(input => {

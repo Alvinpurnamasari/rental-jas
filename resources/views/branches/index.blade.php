@@ -22,15 +22,15 @@
 
     {{-- STATS --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="stat-ds-card">
+        <div class="stat-card">
             <p class="text-xs font-medium uppercase tracking-wide" style="color:var(--text-soft)">Total Cabang</p>
             <p class="text-2xl font-bold mt-1" style="color:var(--text-dark)">{{ $branches->count() }}</p>
         </div>
-        <div class="stat-ds-card">
+        <div class="stat-card">
             <p class="text-xs font-medium uppercase tracking-wide" style="color:var(--text-soft)">Cabang Aktif</p>
             <p class="text-2xl font-bold mt-1 text-green-600">{{ $branches->where('is_active', true)->count() }}</p>
         </div>
-        <div class="stat-ds-card">
+        <div class="stat-card">
             <p class="text-xs font-medium uppercase tracking-wide" style="color:var(--text-soft)">Cabang Nonaktif</p>
             <p class="text-2xl font-bold mt-1 text-red-500">{{ $branches->where('is_active', false)->count() }}</p>
         </div>

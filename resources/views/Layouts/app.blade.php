@@ -11,8 +11,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
 
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -38,10 +36,6 @@
             ['label' => 'Produk', 'route' => 'products.index', 'icon' => 'package', 'active' => 'products.*', 'roles' => ['super_admin','admin_toko','sales']],
             ['label' => 'Kategori', 'route' => 'categories.index', 'icon' => 'tags', 'active' => 'categories.*', 'roles' => ['super_admin']],
         ],
-        'Laporan' => [
-            ['label' => 'Pendapatan', 'route' => 'reports.revenue', 'icon' => 'trending-up', 'active' => 'reports.revenue', 'roles' => ['super_admin','admin_toko','sales']],
-            ['label' => 'Pengembalian', 'route' => 'reports.returns', 'icon' => 'package-check', 'active' => 'reports.returns', 'roles' => ['super_admin','admin_toko']],
-        ],
         'Admin' => [
             ['label' => 'Cabang', 'route' => 'branches.index', 'icon' => 'building-2', 'active' => 'branches.*', 'roles' => ['super_admin']],
             ['label' => 'Pengguna', 'route' => 'users.index', 'icon' => 'users-round', 'active' => 'users.*', 'roles' => ['super_admin']],
@@ -50,6 +44,9 @@
         'Akun' => [
             ['label' => 'Profil', 'route' => 'profile.edit', 'icon' => 'user-cog', 'active' => 'profile.*', 'roles' => ['super_admin','admin_toko','sales']],
             ['label' => 'Keluar', 'route' => 'logout', 'icon' => 'log-out', 'active' => '', 'roles' => ['super_admin','admin_toko','sales']],
+        ],
+        'Log' => [
+            ['label' => 'Log Keseluruhan', 'route' => 'reports.activity-log', 'icon' => 'scroll-text', 'active' => 'reports.activity-log.*', 'roles' => ['super_admin','admin_toko']],
         ],
     ];
 
@@ -130,9 +127,9 @@
                             <div class="space-y-1">
                                 @foreach($visibleItems as $item)
                                     @if($item['route'] === 'logout')
-                                        <form method="POST" action="{{ route('logout') }}">
+                                        <form id="logoutSidebarForm" method="POST" action="{{ route('logout') }}">
                                             @csrf
-                                            <button type="submit" @click="sidebarMobileOpen = false"
+                                            <button type="button" onclick="confirmAction('logoutSidebarForm', 'Keluar dari Sistem', 'Apakah Anda yakin ingin keluar dari web ini?', 'Ya, Keluar', '#dc2626')"
                                                 class="w-full flex items-center gap-3 rounded-[16px] px-3 py-2.5 text-sm font-semibold ds-transition text-rose-400 hover:bg-rose-500/10">
                                                 <i data-lucide="{{ $item['icon'] }}" class="h-4 w-4"></i>
                                                 <span class="truncate">{{ $item['label'] }}</span>
@@ -171,17 +168,7 @@
                         <i data-lucide="menu" class="h-5 w-5 text-slate-700"></i>
                     </button>
                     <div class="min-w-0">
-                        <div class="hidden sm:flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                            <span class="text-slate-600">Home</span>
-                            <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
-                            <span class="truncate">@yield('page-title', 'Dashboard')</span>
-                        </div>
-                        <div class="flex items-baseline gap-3">
-                            <h1 class="truncate text-xl font-bold tracking-tight text-slate-800 font-sans">@yield('page-title', 'Dashboard')</h1>
-                            <p class="hidden md:block text-sm font-semibold text-slate-500">
-                                Selamat Datang, <span class="text-slate-700">{{ auth()->user()?->name }}</span>
-                            </p>
-                        </div>
+                        <h1 class="truncate text-xl font-bold tracking-tight text-slate-800 font-sans">@yield('page-title', 'Dashboard')</h1>
                     </div>
                 </div>
 
@@ -251,9 +238,9 @@
                                 </a>
                             @endif
                             @endauth
-                            <form method="POST" action="{{ route('logout') }}" class="mt-1">
+                            <form id="logoutDropdownForm" method="POST" action="{{ route('logout') }}" class="mt-1">
                                 @csrf
-                                <button type="submit" class="w-full flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 ds-transition">
+                                <button type="button" onclick="confirmAction('logoutDropdownForm', 'Keluar dari Sistem', 'Apakah Anda yakin ingin keluar dari web ini?', 'Ya, Keluar', '#dc2626')" class="w-full flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 ds-transition">
                                     <i data-lucide="log-out" class="h-4 w-4"></i>
                                     Keluar
                                 </button>

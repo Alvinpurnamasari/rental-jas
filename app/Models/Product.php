@@ -45,6 +45,95 @@ class Product extends Model
         return $this->hasMany(RentalItem::class);
     }
 
+    public function sizes(): HasMany
+    {
+        return $this->hasMany(ProductSize::class);
+    }
+
+    public function getTotalStockAttribute(): int
+    {
+        if ($this->relationLoaded('sizes')) {
+            return $this->sizes->sum('stock_total');
+        }
+
+        return (int) $this->sizes()->sum('stock_total');
+    }
+
+    public function getAvailableStockAttribute(): int
+    {
+        if ($this->relationLoaded('sizes')) {
+            return $this->sizes->sum('stock_available');
+        }
+
+        return (int) $this->sizes()->sum('stock_available');
+    }
+
+    public function getSizesDataAttribute(): array
+    {
+        return $this->sizes->mapWithKeys(function ($size) {
+            return [$size->size => [
+                'stock_total' => $size->stock_total,
+                'stock_available' => $size->stock_available,
+            ]];
+        })->toArray();
+    }
+
+    public function decrementSizeStock(string $size, int $quantity): int
+    {
+        $productSize = $this->sizes()->where('size', $size)->lockForUpdate()->first();
+        if ($productSize) {
+            if ((int) $productSize->stock_available < $quantity) {
+                return -1;
+            }
+            $productSize->decrement('stock_available', $quantity);
+        } else {
+            $newStock = (int) $this->stock_available - $quantity;
+            if ($newStock < 0) {
+                return -1;
+            }
+            $this->stock_available = $newStock;
+        }
+        $this->recomputeAggregateStock(outOfStock: true);
+        return $this->available_stock;
+    }
+
+    public function incrementSizeStock(string $size, int $quantity): void
+    {
+        $productSize = $this->sizes()->where('size', $size)->lockForUpdate()->first();
+        if ($productSize) {
+            $productSize->increment('stock_available', $quantity);
+        } else {
+            $this->stock_available = (int) $this->stock_available + $quantity;
+        }
+        $this->recomputeAggregateStock(outOfStock: false);
+    }
+
+    public function setSizeStockAvailable(ProductSize $productSize, int $stockAvailable): void
+    {
+        if ((int) $productSize->product_id !== (int) $this->id) {
+            throw new \InvalidArgumentException('The size stock does not belong to this product.');
+        }
+
+        $stockDecreased = $stockAvailable < (int) $productSize->stock_available;
+        $productSize->stock_available = $stockAvailable;
+        $productSize->save();
+
+        $this->recomputeAggregateStock(outOfStock: $stockDecreased);
+    }
+
+    protected function recomputeAggregateStock(bool $outOfStock = true): void
+    {
+        $this->load('sizes');
+        $this->stock_available = $this->available_stock;
+        $this->stock_total = $this->total_stock;
+        if ($outOfStock) {
+            $this->status = ($this->available_stock <= 0) ? 'rented' : $this->status;
+        } else {
+            $this->status = ($this->status === 'rented' && $this->available_stock > 0) ? 'available' : $this->status;
+        }
+        $this->save();
+    }
+
     public function getPhotoUrlAttribute(): string
     {
         if ($this->photo) {

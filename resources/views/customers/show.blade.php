@@ -48,12 +48,13 @@
 <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', str_starts_with($customer->phone, '0') ? '62'.substr($customer->phone,1) : $customer->phone) }}" target="_blank" class="btn-secondary" style="color:#25D366;border-color:#25D366"><i data-lucide="message-circle" class="w-4 h-4"></i> WhatsApp</a>
 @if(auth()->user()->isSuperAdmin())
 <button @click="showBlacklist = true" class="btn-secondary {{ $customer->is_blacklisted ? 'border-green-400 text-green-600' : 'border-red-300 text-red-500' }}"><i data-lucide="{{ $customer->is_blacklisted ? 'user-check' : 'user-x' }}" class="w-4 h-4"></i> {{ $customer->is_blacklisted ? 'Hapus Blacklist' : 'Blacklist' }}</button>
+@endif
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
 <button type="button" onclick="confirmDelete('deleteCustomerForm','customer {{ $customer->name }}')" class="btn-secondary text-red-500 hover:bg-red-50"><i data-lucide="trash-2" class="w-4 h-4"></i> Hapus</button>
 @endif
 @else
 @auth @if(auth()->user()->isSuperAdmin())
-<form method="POST" action="{{ route('customers.force-destroy', $customer->id) }}" id="forceDeleteCustomerForm" class="hidden">@csrf @method('DELETE')</form>
-<button type="button" onclick="confirmForceDelete('forceDeleteCustomerForm', 'customer {{ $customer->name }}')" class="btn-secondary text-red-500 hover:bg-red-50"><i data-lucide="trash-2" class="w-4 h-4"></i> Hapus Permanen</button>
+<button type="button" onclick="confirmDelete('deleteCustomerForm','customer {{ $customer->name }}')" class="btn-secondary text-red-500 hover:bg-red-50"><i data-lucide="trash-2" class="w-4 h-4"></i> Hapus Permanen</button>
 @endif @endauth
 @endif
 </div>
@@ -162,36 +163,9 @@
 </div>
 @endsection
 
-<form id="deleteCustomerForm" method="POST" action="{{ route('customers.destroy', $customer) }}" class="hidden">@csrf @method('DELETE')</form>
+<form id="deleteCustomerForm" method="POST" action="{{ $isDeactivated ? route('customers.force-destroy', $customer) : route('customers.destroy', $customer) }}" class="hidden">@csrf @method('DELETE')</form>
 
 @push('scripts')
 <script>
-function confirmForceDelete(formId, label) {
-    Swal.fire({
-        title: 'Hapus Permanen',
-        html: 'Apakah Anda yakin ingin menghapus permanen <strong>' + label + '</strong>?<br><br>Data yang dihapus <span class="text-red-600 font-bold">TIDAK DAPAT</span> dipulihkan kembali.',
-        icon: 'error',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Ya, Hapus Permanen',
-        cancelButtonText: 'Batal',
-        reverseButtons: true,
-        customClass: {
-            confirmButton: 'rounded-xl px-5 py-2.5 text-sm font-semibold',
-            cancelButton: 'rounded-xl px-5 py-2.5 text-sm font-semibold',
-            popup: 'rounded-2xl'
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Menghapus...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading(),
-            });
-            document.getElementById(formId).submit();
-        }
-    });
-}
 </script>
 @endpush

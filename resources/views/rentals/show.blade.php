@@ -41,9 +41,14 @@
                     Kembali ke Penyewaan
                 </a>
                 @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
-                <a href="{{ route('rentals.edit', $rental) }}" class="btn-secondary">
+                @php
+                    $isRentalLocked = in_array($rental->rental_status, ['active', 'overdue']) || $rental->payment_status === 'paid';
+                @endphp
+                <a href="{{ $isRentalLocked ? '#' : route('rentals.edit', $rental) }}"
+                   class="btn-secondary {{ $isRentalLocked ? 'opacity-50 cursor-not-allowed' : '' }}"
+                   @if($isRentalLocked) onclick="event.preventDefault(); return false;" @endif>
                     <i data-lucide="edit-2" class="w-4 h-4"></i>
-                    Edit
+                    {{ $isRentalLocked ? 'Tidak Dapat Diedit' : 'Edit' }}
                 </a>
                 @endif
                 <template x-if="rental.rental_status === 'waiting'">
@@ -59,7 +64,7 @@
                    onclick="downloadPdfAndOpenWa('{{ route('rentals.receipt.pdf', $rental) }}', '{{ addslashes($rental->customer->name ?? 'Customer') }}', '{{ $rental->invoice_number }}', '{{ preg_replace('/[^0-9]/', '', str_starts_with($rental->customer->phone ?? '', '0') ? '62'.substr($rental->customer->phone, 1) : ($rental->customer->phone ?? '')) }}')"
                    class="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">WA Receipt</a>
                 <a href="{{ route('rentals.reminder', $rental) }}" class="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Reminder</a>
-                @if(auth()->user()->isSuperAdmin())
+                @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                 <button type="button" onclick="confirmDeleteRental('{{ $rental->invoice_number }}')" class="btn-secondary text-red-500 hover:bg-red-50">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                     Hapus
@@ -256,7 +261,7 @@
                             <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="controlsDisabled ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'" x-text="controlsDisabled ? 'Read Only' : 'Aktif'"></span>
                         </div>
 
-                        <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
                             <button type="button" @click="markAllGood()" :disabled="controlsDisabled" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
                                 <span>✓</span>
                                 <span>Tandai Semua Baik</span>
@@ -264,10 +269,6 @@
                             <button type="button" @click="resetItems()" :disabled="controlsDisabled" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
                                 <span>↺</span>
                                 <span>Reset</span>
-                            </button>
-                            <button type="button" @click="calculateTotalDenda()" :disabled="controlsDisabled" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
-                                <span>💰</span>
-                                <span>Hitung Denda</span>
                             </button>
                         </div>
 
@@ -313,6 +314,7 @@
                                                 class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                                                 placeholder="Catatan kondisi barang"
                                             ></textarea>
+
                                         </div>
                                     </div>
                                 </div>
@@ -371,12 +373,22 @@
 
                 <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
                     <div class="mb-4 flex items-center gap-2">
-                        <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                                <h2 class="text-lg font-bold text-slate-900">Aktivitas</h2>
+                            </div>
+                            <a href="{{ route('rentals.activity-log.download', $rental) }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                Download Log
+                            </a>
                         </div>
-                        <h2 class="text-lg font-bold text-slate-900">Aktivitas</h2>
                     </div>
 
                     <div class="space-y-3" x-show="rental.activity_logs.length > 0">
@@ -575,8 +587,9 @@
                                     @endif
                                 </div>
                             </div>
-                            <button type="submit" class="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
-                                Proses Pembayaran
+                            <button type="submit" :disabled="paymentProcessing" class="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed">
+                                <span x-show="paymentProcessing">Memproses...</span>
+                                <span x-show="!paymentProcessing">Proses Pembayaran</span>
                             </button>
                         </form>
                     </div>
@@ -706,6 +719,7 @@
                 handoverLoading: false,
                 showRefundModal: false,
                 refundLoading: false,
+                paymentProcessing: false,
 
                 progressSteps: [
                     { id: 1, label: 'Booking' },
@@ -800,10 +814,13 @@ displayedPhotoModal: null,
                 },
 
                 preparePaymentSubmit(event) {
-                    // Get the payment amount input
+                    if (this.paymentProcessing) {
+                        event.preventDefault();
+                        return false;
+                    }
+                    this.paymentProcessing = true;
                     const input = document.getElementById('payment_amount');
                     if (input) {
-                        // Replace the value with raw number (without separators)
                         input.value = input.value.replace(/[^0-9]/g, '');
                     }
                 },
@@ -1001,15 +1018,72 @@ displayedPhotoModal: null,
                             payments: data.rental.payments || this.rental.payments,
                             activity_logs: data.rental.activity_logs || this.rental.activity_logs,
                             items: (data.rental.items || []).map((item) => {
-                                const existingItem = previousItems.find((currentItem) => currentItem.id === item.id) || {};
+                                const existingItem = previousItems.find(
+                                    (currentItem) => Number(currentItem.id) === Number(item.id)
+                                ) || {};
 
                                 return {
                                     ...existingItem,
                                     ...item,
-                                    category_name: item.category_name || existingItem.category_name || '-',
-                                    damage_fee: Number(item.damage_fee ?? existingItem.damage_fee ?? 0),
-                                    price: Number(item.price ?? existingItem.price ?? 0),
-                                    subtotal: Number(item.subtotal ?? existingItem.subtotal ?? 0),
+
+                                    // Pertahankan data produk dari state sebelum pengembalian
+                                    product_name:
+                                        existingItem.product_name ??
+                                        item.product_name ??
+                                        '-',
+
+                                    category_name:
+                                        existingItem.category_name ??
+                                        item.category_name ??
+                                        '-',
+
+                                    size:
+                                        existingItem.size ??
+                                        item.size ??
+                                        '-',
+
+                                    photo:
+                                        existingItem.photo ??
+                                        item.photo ??
+                                        null,
+
+                                    quantity: Number(
+                                        existingItem.quantity ??
+                                        item.quantity ??
+                                        1
+                                    ),
+
+                                    price: Number(
+                                        existingItem.price ??
+                                        item.price ??
+                                        0
+                                    ),
+
+                                    subtotal: Number(
+                                        existingItem.subtotal ??
+                                        item.subtotal ??
+                                        (
+                                            Number(existingItem.price ?? item.price ?? 0) *
+                                            Number(existingItem.quantity ?? item.quantity ?? 1)
+                                        )
+                                    ),
+
+                                    // Data yang memang diperbarui saat pengembalian
+                                    return_condition:
+                                        item.return_condition ??
+                                        existingItem.return_condition ??
+                                        null,
+
+                                    return_notes:
+                                        item.return_notes ??
+                                        existingItem.return_notes ??
+                                        '',
+
+                                    damage_fee: Number(
+                                        item.damage_fee ??
+                                        existingItem.damage_fee ??
+                                        0
+                                    ),
                                 };
                             }),
                         };
@@ -1106,7 +1180,7 @@ displayedPhotoModal: null,
                                 };
                             }),
                         };
-
+                        this.controlsDisabled = false;
                         this.showHandoverModal = false;
 
                         await Swal.fire({
@@ -1169,6 +1243,8 @@ displayedPhotoModal: null,
                             throw new Error(data.message || 'Pencatatan kembalian gagal.');
                         }
 
+                        const oldItems = this.rental.items || [];
+                        const newItems = data.rental.items || [];
                         this.rental = {
                             ...this.rental,
                             ...data.rental,
@@ -1177,14 +1253,41 @@ displayedPhotoModal: null,
                             guarantees: data.rental.guarantees || this.rental.guarantees,
                             payments: data.rental.payments || this.rental.payments,
                             activity_logs: data.rental.activity_logs || this.rental.activity_logs,
-                            items: (data.rental.items || []).map((item) => {
-                                const existingItem = (this.rental.items || []).find((currentItem) => currentItem.id === item.id) || {};
+                            items: oldItems.map((existingItem) => {
+                                const newItem = newItems.find(
+                                    (item) => Number(item.id) === Number(existingItem.id)
+                                );
+
+                                if (!newItem) {
+                                    return existingItem;
+                                }
+
                                 return {
                                     ...existingItem,
-                                    ...item,
-                                    category_name: item.category_name || existingItem.category_name || '-',
-                                    damage_fee: Number(item.damage_fee ?? existingItem.damage_fee ?? 0),
-                                    price: Number(item.price ?? existingItem.price ?? 0),
+                                    ...newItem,
+
+                                    // Data produk tetap ambil dari state sebelum refund
+                                    product_name: existingItem.product_name,
+                                    category_name: existingItem.category_name,
+                                    size: existingItem.size,
+                                    photo: existingItem.photo,
+                                    quantity: existingItem.quantity,
+                                    price: existingItem.price,
+
+                                    // Yang memang boleh berubah setelah proses
+                                    return_condition:
+                                        newItem.return_condition ??
+                                        existingItem.return_condition,
+
+                                    return_notes:
+                                        newItem.return_notes ??
+                                        existingItem.return_notes,
+
+                                    damage_fee: Number(
+                                        newItem.damage_fee ??
+                                        existingItem.damage_fee ??
+                                        0
+                                    ),
                                 };
                             }),
                             change_amount: Number(data.rental.change_amount ?? this.rental.change_amount ?? 0),

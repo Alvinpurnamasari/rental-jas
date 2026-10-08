@@ -39,7 +39,7 @@ class PaymentService
                 'action' => 'create_payment',
                 'model_type' => Rental::class,
                 'model_id' => $invoice->id,
-                'description' => Auth::user()->name . ' menambah pembayaran',
+                'description' => \App\Services\ActivityLogFormatter::format(null, $payment->getAttributes(), Rental::class, $invoice->id, 'create_payment'),
                 'old_values' => [],
                 'new_values' => $payment->getAttributes(),
                 'ip_address' => request()->ip(),
@@ -79,7 +79,7 @@ class PaymentService
                 'action' => 'update_payment',
                 'model_type' => Rental::class,
                 'model_id' => $invoice->id,
-                'description' => Auth::user()->name . ' mengubah pembayaran',
+                'description' => \App\Services\ActivityLogFormatter::format($old, $payment->getAttributes(), Rental::class, $invoice->id, 'update_payment'),
                 'old_values' => $old,
                 'new_values' => $payment->getAttributes(),
                 'ip_address' => request()->ip(),
@@ -92,6 +92,10 @@ class PaymentService
 
     public function delete(Rental $invoice, Payment $payment): void
     {
+        if (in_array($invoice->rental_status, ['waiting', 'active', 'overdue'], true)) {
+            throw new \InvalidArgumentException('Pembayaran tidak dapat dihapus karena penyewaan masih dalam status aktif.');
+        }
+
         DB::transaction(function () use ($invoice, $payment) {
             $old = $payment->getAttributes();
 
@@ -103,9 +107,9 @@ class PaymentService
                 'action' => 'delete_payment',
                 'model_type' => Rental::class,
                 'model_id' => $invoice->id,
-                'description' => Auth::user()->name . ' menghapus pembayaran',
+                'description' => \App\Services\ActivityLogFormatter::format($old, null, Rental::class, $invoice->id, 'delete_payment'),
                 'old_values' => $old,
-                'new_values' => [],
+                'new_values' => null,
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent(),
             ]);
@@ -139,7 +143,7 @@ class PaymentService
                 'action' => 'void_payment',
                 'model_type' => Rental::class,
                 'model_id' => $invoice->id,
-                'description' => Auth::user()->name . ' melakukan void pembayaran',
+                'description' => \App\Services\ActivityLogFormatter::format($payment->getAttributes(), $void->getAttributes(), Rental::class, $invoice->id, 'void_payment'),
                 'old_values' => $payment->getAttributes(),
                 'new_values' => $void->getAttributes(),
                 'ip_address' => request()->ip(),
@@ -174,7 +178,7 @@ class PaymentService
                 'action' => 'refund_payment',
                 'model_type' => Rental::class,
                 'model_id' => $invoice->id,
-                'description' => Auth::user()->name . ' melakukan refund pembayaran',
+                'description' => \App\Services\ActivityLogFormatter::format($payment->getAttributes(), $refund->getAttributes(), Rental::class, $invoice->id, 'refund_payment'),
                 'old_values' => $payment->getAttributes(),
                 'new_values' => $refund->getAttributes(),
                 'ip_address' => request()->ip(),

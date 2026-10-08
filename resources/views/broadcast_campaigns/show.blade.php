@@ -85,34 +85,38 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            @forelse($campaign->logs as $log)
-                                @php
-                                    $recipient = $log->recipient;
-                                    $isPending = $log->status === 'pending';
-                                    $statusBadge = $isPending
-                                        ? '<span class="badge bg-slate-100 text-slate-700">Belum Dikirim</span>'
-                                        : '<span class="badge bg-green-100 text-green-700">Sudah Terkirim</span>';
-                                @endphp
-                                <tr class="hover:bg-slate-50/60">
-                                    <td class="px-4 py-2">
-                                        <div class="font-medium text-slate-900">{{ $recipient?->name ?? ($log->recipient_name ?? '-') }}</div>
-                                    </td>
-                                    <td class="px-4 py-2 text-slate-600">{{ $log->phone }}</td>
-                                    <td class="px-4 py-2">{!! $statusBadge !!}</td>
-                                    <td class="px-4 py-2">
-                                        @if($isPending)
-                                            <form method="POST" action="{{ route('broadcast-campaigns.send-to-customer', [$campaign, $recipient]) }}" class="inline">
-                                                @csrf
-                                                <button type="submit" class="btn-primary px-3 py-1.5 text-xs">
-                                                    Kirim
-                                                </button>
-                                            </form>
-                                        @else
-                                            <span class="text-xs text-slate-400">Terkirim {{ optional($log->sent_at)->format('d M Y H:i') ?? '' }}</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @empty
+                                @forelse($campaign->logs as $log)
+                                    @php
+                                        $recipient = $log->recipient;
+                                        $isPending = $log->status === 'pending';
+                                        $isCustomerRecipient = $log->recipient_type === 'customer';
+                                        $canSend = $isPending && $isCustomerRecipient && $recipient !== null;
+                                        $statusBadge = $isPending
+                                            ? '<span class="badge bg-slate-100 text-slate-700">Belum Dikirim</span>'
+                                            : '<span class="badge bg-green-100 text-green-700">Sudah Terkirim</span>';
+                                    @endphp
+                                    <tr class="hover:bg-slate-50/60">
+                                        <td class="px-4 py-2">
+                                            <div class="font-medium text-slate-900">{{ $recipient?->name ?? ($log->recipient_name ?? '-') }}</div>
+                                        </td>
+                                        <td class="px-4 py-2 text-slate-600">{{ $log->phone }}</td>
+                                        <td class="px-4 py-2">{!! $statusBadge !!}</td>
+                                        <td class="px-4 py-2">
+                                            @if($canSend)
+                                                <form method="POST" action="{{ route('broadcast-campaigns.send-to-customer', [$campaign, $recipient]) }}" class="inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn-primary px-3 py-1.5 text-xs">
+                                                        Kirim
+                                                    </button>
+                                                </form>
+                                            @elseif(!$isPending)
+                                                <span class="text-xs text-slate-400">Terkirim {{ optional($log->sent_at)->format('d M Y H:i') ?? '' }}</span>
+                                            @else
+                                                <span class="text-xs text-slate-400">Belum Dikirim</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
                                 <tr>
                                     <td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500">
                                         Belum ada penerima.

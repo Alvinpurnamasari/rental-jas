@@ -40,8 +40,8 @@ class CustomerController extends Controller
 
         if ($user->role === 'sales') {
             $query->where('user_id', $user->id);
-        } elseif (!$user->isSuperAdmin()) {
-            $query->where('branch_id', $user->branch_id);
+        } elseif (!$user->isSuperAdmin() && $user->branch_access_type === 'specific') {
+            $query->whereIn('branch_id', $user->accessible_branch_ids);
         }
 
         if ($request->filled('search')) {
@@ -79,8 +79,8 @@ class CustomerController extends Controller
             $deactivatedQuery = Customer::onlyTrashed();
             if ($user->role === 'sales') {
                 $deactivatedQuery->where('user_id', $user->id);
-            } elseif (!$user->isSuperAdmin()) {
-                $deactivatedQuery->where('branch_id', $user->branch_id);
+            } elseif (!$user->isSuperAdmin() && $user->branch_access_type === 'specific') {
+                $deactivatedQuery->whereIn('branch_id', $user->accessible_branch_ids);
             }
             $deactivatedCount = $deactivatedQuery->count();
         }
@@ -127,16 +127,41 @@ class CustomerController extends Controller
         }
 
         if ($existingActive) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'existing_customer' => true,
+                    'message' => "Nomor HP ini sudah terdaftar atas nama {$existingActive->name}.",
+                    'customer' => [
+                        'id' => $existingActive->id,
+                        'name' => $existingActive->name,
+                        'phone' => $existingActive->phone,
+                    ],
+                ], 409);
+            }
+        
             return back()->withInput()->withErrors([
-                'phone' => "Nomor HP ini sudah terdaftar atas nama \"{$existingActive->name}\"",
+                'phone' => "Nomor HP ini sudah terdaftar atas nama \"{$existingActive->name}\".",
             ]);
         }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'regex:/^[0-9]+$/', 'max:20', Rule::unique('customers', 'phone')->whereNull('deleted_at')],
+            'phone' => [
+                'required',
+                'string',
+                'regex:/^[0-9]+$/',
+                'min:10',
+                'max:15',
+                Rule::unique('customers', 'phone')->whereNull('deleted_at'),
+            ],
             'notes' => ['nullable', 'string'],
-        ], ['phone.unique' => "Nomor HP ini sudah terdaftar"]);
+        ], [
+            'phone.regex' => 'Nomor HP hanya boleh berisi angka.',
+            'phone.min' => 'Nomor HP terlalu pendek.',
+            'phone.max' => 'Nomor HP terlalu panjang.',
+            'phone.unique' => 'Nomor HP ini sudah terdaftar.',
+        ]);
 
         $data = $validated;
         $data['is_blacklisted'] = false;
@@ -183,6 +208,7 @@ class CustomerController extends Controller
         if (!$user || ($user->role !== 'super_admin' && $user->role !== 'admin_toko' && $user->role !== 'sales')) {
             abort(403, 'Unauthorized action.');
         }
+        abort_unless($user->isSuperAdmin() || $user->canAccessBranch((int) $customer->branch_id), 403);
         $customer->load(['rentals' => function ($q) { $q->latest()->with(['items.product']); }]);
         $customer->load('rentals.items');
         return view('customers.show', compact('customer'));
@@ -191,60 +217,144 @@ class CustomerController extends Controller
     public function edit(Customer $customer)
     {
         $user = Auth::user();
-        if (!$user || !$user->isSuperAdmin()) {
+    
+        if (
+            !$user ||
+            (
+                !$user->isSuperAdmin() &&
+                !$user->isAdminToko() &&
+                $user->role !== 'sales'
+            )
+        ) {
             abort(403, 'Unauthorized action.');
         }
+    
+        if ($user->role === 'sales') {
+            abort_unless((int) $customer->user_id === (int) $user->id, 403);
+        } else {
+            abort_unless(
+                $user->isSuperAdmin() ||
+                $user->canAccessBranch((int) $customer->branch_id),
+                403
+            );
+        }
+    
         return view('customers.create', compact('customer'));
     }
 
     public function update(Request $request, Customer $customer)
     {
         $user = Auth::user();
-        if (!$user || !$user->isSuperAdmin()) {
+    
+        // Super Admin, Admin Toko, dan Sales boleh melakukan update
+        if (
+            !$user ||
+            (
+                !$user->isSuperAdmin() &&
+                !$user->isAdminToko() &&
+                $user->role !== 'sales'
+            )
+        ) {
             abort(403, 'Unauthorized action.');
         }
-        $request->merge(['phone' => $this->normalizePhone($request->input('phone'))]);
+    
+        // Sales hanya boleh mengedit pelanggan miliknya sendiri
+        if ($user->role === 'sales') {
+            abort_unless(
+                (int) $customer->user_id === (int) $user->id,
+                403,
+                'Unauthorized action.'
+            );
+        } else {
+            // Admin Toko hanya boleh mengakses customer cabangnya
+            abort_unless(
+                $user->isSuperAdmin() ||
+                $user->canAccessBranch((int) $customer->branch_id),
+                403,
+                'Unauthorized action.'
+            );
+        }
+    
+        $request->merge([
+            'phone' => $this->normalizePhone($request->input('phone'))
+        ]);
+    
         $phone = $request->input('phone');
-
+    
         $existingDeleted = Customer::withTrashed()
             ->where('phone', $phone)
             ->whereNotNull('deleted_at')
             ->where('id', '!=', $customer->id)
             ->first();
-
+    
         if ($existingDeleted) {
             return back()->withInput()->withErrors([
                 'phone' => "Nomor HP ini sudah pernah terdaftar (direkam sebagai \"{$existingDeleted->name}\" dan telah dinonaktifkan).",
             ]);
         }
-
+    
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'regex:/^[0-9]+$/', 'max:20', Rule::unique('customers', 'phone')->ignore($customer->id)->whereNull('deleted_at')],
+            'phone' => [
+                'required',
+                'string',
+                'regex:/^[0-9]+$/',
+                'min:10',
+                'max:15',
+                Rule::unique('customers', 'phone')
+                    ->ignore($customer->id)
+                    ->whereNull('deleted_at'),
+            ],
             'notes' => ['nullable', 'string'],
+        ], [
+            'phone.regex' => 'Nomor HP hanya boleh berisi angka.',
+            'phone.min' => 'Nomor HP terlalu pendek.',
+            'phone.max' => 'Nomor HP terlalu panjang.',
+            'phone.unique' => 'Nomor HP ini sudah terdaftar.',
         ]);
-
+    
         $data = $validated;
-
-        if (Auth::check()) {
-            $user = Auth::user();
-            if (isset($user->branch_id) && $user->branch_id !== null) {
-                $data['branch_id'] = $user->branch_id;
-            } elseif ($user->isSuperAdmin()) {
-                $branchId = $request->input('branch_id');
-                if ($branchId && Branch::where('id', $branchId)->where('is_active', true)->exists()) {
-                    $data['branch_id'] = (int) $branchId;
-                } else {
-                    $defaultBranch = Branch::where('is_active', true)->orderBy('id')->first();
-                    if (!$defaultBranch) {
-                        abort(400, 'Tidak ada cabang aktif. Buat cabang terlebih dahulu.');
-                    }
-                    $data['branch_id'] = $defaultBranch->id;
+    
+        // Pengaturan branch
+        if ($user->isAdminToko()) {
+    
+            // Admin toko tidak boleh memindahkan customer ke cabang lain
+            $data['branch_id'] = $customer->branch_id;
+    
+        } elseif ($user->role === 'sales') {
+    
+            // Sales juga tidak boleh memindahkan customer ke cabang lain
+            $data['branch_id'] = $customer->branch_id;
+    
+        } elseif ($user->isSuperAdmin()) {
+    
+            $branchId = $request->input('branch_id');
+    
+            if (
+                $branchId &&
+                Branch::where('id', $branchId)
+                    ->where('is_active', true)
+                    ->exists()
+            ) {
+                $data['branch_id'] = (int) $branchId;
+            } else {
+                $defaultBranch = Branch::where('is_active', true)
+                    ->orderBy('id')
+                    ->first();
+    
+                if (!$defaultBranch) {
+                    abort(400, 'Tidak ada cabang aktif. Buat cabang terlebih dahulu.');
                 }
+    
+                $data['branch_id'] = $defaultBranch->id;
             }
         }
+    
         $customer->update($data);
-        return redirect()->route('customers.show', $customer)->with('success', 'Customer berhasil diperbarui.');
+    
+        return redirect()
+            ->route('customers.show', $customer)
+            ->with('success', 'Customer berhasil diperbarui.');
     }
 
     public function toggleBlacklist(Request $request, Customer $customer)
@@ -263,49 +373,122 @@ class CustomerController extends Controller
     public function destroy(Customer $customer)
     {
         $user = Auth::user();
+        if (!$user || (!$user->isSuperAdmin() && !$user->isAdminToko())) {
+            abort(403, 'Unauthorized action.');
+        }
+        abort_unless($user->isSuperAdmin() || $user->canAccessBranch((int) $customer->branch_id), 403);
+        abort_unless($user->role !== 'sales', 403);
+
+        $hasActiveRental = $customer->rentals()
+            ->whereIn('rental_status', ['waiting', 'active', 'overdue'])
+            ->exists();
+
+        if ($hasActiveRental) {
+            return back()->with('error', 'Customer tidak dapat dinonaktifkan karena masih memiliki transaksi sewa yang sedang berlangsung.');
+        }
+
+        $customerName = $customer->name;
+
+        BroadcastLog::where('recipient_type', 'customer')
+            ->where('recipient_id', $customer->id)
+            ->update([
+                'customer_id' => null,
+                'recipient_name' => $customer->name,
+            ]);
+
+        $oldValues = $customer->getAttributes();
+        $customer->delete();
+
+        $description = \App\Services\ActivityLogFormatter::format(
+            $oldValues,
+            null,
+            Customer::class,
+            $customer->id,
+            'delete_customer'
+        );
+
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'branch_id' => auth()->user()->branch_id,
+            'action' => 'delete_customer',
+            'model_type' => Customer::class,
+            'model_id' => $customer->id,
+            'description' => $description,
+            'old_values' => $oldValues,
+            'new_values' => null,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+        return redirect()->route('customers.index')->with('success', "Customer {$customerName} berhasil dinonaktifkan.");
+    }
+
+    public function forceDestroy(Customer $customer)
+    {
+        $user = Auth::user();
         if (!$user || !$user->isSuperAdmin()) {
             abort(403, 'Unauthorized action.');
         }
         abort_unless($user->role !== 'sales', 403);
 
-        $hasRentals = $customer->rentals()->withTrashed()->exists();
-        $hasPayments = Payment::whereHas('rental', fn($q) => $q->withTrashed()->where('customer_id', $customer->id))->exists();
-        $hasGuarantees = Guarantee::whereHas('rental', fn($q) => $q->withTrashed()->where('customer_id', $customer->id))->exists();
+        if (!$customer->trashed()) {
+            return back()->with('error', 'Customer ini masih aktif. Nonaktifkan terlebih dahulu sebelum menghapus permanen.');
+        }
 
-        $logData = [
-            'user_id' => auth()->id(),
-            'branch_id' => auth()->user()->branch_id,
-            'model_type' => Customer::class,
-            'model_id' => $customer->id,
-            'old_values' => $customer->getAttributes(),
-            'new_values' => [],
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ];
+        $hasActiveRental = $customer->rentals()
+            ->whereIn('rental_status', ['waiting', 'active', 'overdue'])
+            ->exists();
+        $hasPayments = Payment::whereHas('rental', fn($q) => $q->where('customer_id', $customer->id)->whereIn('rental_status', ['waiting', 'active', 'overdue']))->exists();
+        $hasGuarantees = Guarantee::whereHas('rental', fn($q) => $q->where('customer_id', $customer->id)->whereIn('rental_status', ['waiting', 'active', 'overdue']))->exists();
+
+        if ($hasActiveRental || $hasPayments || $hasGuarantees) {
+            $parts = [];
+            if ($hasActiveRental) $parts[] = 'penyewaan';
+            if ($hasPayments)     $parts[] = 'pembayaran';
+            if ($hasGuarantees)   $parts[] = 'jaminan';
+            return back()->with('error', 'Customer tidak dapat dihapus permanen karena masih memiliki riwayat ' . implode(', ', $parts) . '.');
+        }
+
+        $customerName = $customer->name;
+
+        BroadcastLog::where('recipient_type', 'customer')
+            ->where('recipient_id', $customer->id)
+            ->update([
+                'customer_id' => null,
+                'recipient_name' => $customer->name,
+            ]);
+
+        $oldValues = $customer->getAttributes();
 
         try {
-            $customer->delete();
+            $customer->forceDelete();
         } catch (QueryException $e) {
             if ($e->getCode() === '23000') {
-                return back()->with('error', 'Customer tidak dapat dihapus karena masih terhubung dengan data transaksi lain.');
+                return back()->with('error', 'Customer tidak dapat dihapus permanen karena masih terhubung dengan data transaksi lain di database.');
             }
             throw $e;
         }
 
-        if ($hasRentals || $hasPayments || $hasGuarantees) {
-            ActivityLog::create(array_merge($logData, [
-                'action' => 'soft_delete_customer',
-                'description' => auth()->user()->name . ' menonaktifkan customer ' . $customer->name . ' (memiliki riwayat transaksi)',
-            ]));
-            return redirect()->route('customers.index')
-                ->with('success', "Customer {$customer->name} telah dinonaktifkan karena memiliki riwayat transaksi.");
-        }
+        $description = \App\Services\ActivityLogFormatter::format(
+            $oldValues,
+            null,
+            Customer::class,
+            $customer->id,
+            'delete_customer'
+        );
 
-        ActivityLog::create(array_merge($logData, [
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'branch_id' => auth()->user()->branch_id,
             'action' => 'delete_customer',
-            'description' => auth()->user()->name . ' menghapus customer ' . $customer->name,
-        ]));
-        return redirect()->route('customers.index')->with('success', 'Customer berhasil dihapus.');
+            'model_type' => Customer::class,
+            'model_id' => $customer->id,
+            'description' => $description,
+            'old_values' => $oldValues,
+            'new_values' => null,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+        return redirect()->route('customers.index')->with('success', "Customer {$customerName} berhasil dihapus permanen.");
     }
 
     public function restore(Customer $customer)
@@ -317,69 +500,33 @@ class CustomerController extends Controller
         if (!$customer->trashed()) {
             return back()->with('error', 'Customer ini tidak dalam status nonaktif.');
         }
+
+        $oldValues = $customer->getAttributes();
         $customer->restore();
+        $newValues = $customer->getAttributes();
+
+        $description = \App\Services\ActivityLogFormatter::format(
+            $oldValues,
+            $newValues,
+            Customer::class,
+            $customer->id,
+            'restore_customer'
+        );
+
         ActivityLog::create([
             'user_id' => auth()->id(),
             'branch_id' => auth()->user()->branch_id,
             'action' => 'restore_customer',
             'model_type' => Customer::class,
             'model_id' => $customer->id,
-            'description' => auth()->user()->name . ' memulihkan customer ' . $customer->name,
+            'description' => $description,
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
         ]);
         return redirect()->route('customers.show', $customer)
             ->with('success', "Customer {$customer->name} berhasil dipulihkan.");
-    }
-
-    public function forceDestroy(Customer $customer)
-    {
-        $user = Auth::user();
-        if (!$user || !$user->isSuperAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
-        $customerName = $customer->name;
-
-        $hasRentals    = $customer->rentals()->withTrashed()->exists();
-        $hasPayments   = Payment::whereHas('rental', fn($q) => $q->withTrashed()->where('customer_id', $customer->id))->exists();
-        $hasGuarantees = Guarantee::whereHas('rental', fn($q) => $q->withTrashed()->where('customer_id', $customer->id))->exists();
-
-        if ($hasRentals || $hasPayments || $hasGuarantees) {
-            $parts = [];
-            if ($hasRentals)    $parts[] = 'penyewaan';
-            if ($hasPayments)   $parts[] = 'pembayaran';
-            if ($hasGuarantees) $parts[] = 'jaminan';
-            return back()->with('error', 'Customer memiliki riwayat ' . implode(', ', $parts) . ' (termasuk data yang sudah dihapus). Hapus permanen tidak diizinkan.');
-        }
-
-        BroadcastLog::where('recipient_type', 'customer')
-            ->where('recipient_id', $customer->id)
-            ->update([
-                'customer_id' => null,
-                'recipient_name' => $customer->name,
-            ]);
-
-        try {
-            $customer->forceDelete();
-        } catch (QueryException $e) {
-            if ($e->getCode() === '23000') {
-                return back()->with('error', 'Customer tidak dapat dihapus permanen karena masih terhubung dengan data transaksi lain di database.');
-            }
-            throw $e;
-        }
-
-        ActivityLog::create([
-            'user_id' => auth()->id(),
-            'branch_id' => auth()->user()->branch_id,
-            'action' => 'force_delete_customer',
-            'model_type' => Customer::class,
-            'model_id' => $customer->id,
-            'description' => auth()->user()->name . ' menghapus permanen customer ' . $customerName,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
-        return redirect()->route('customers.index')
-            ->with('success', "Customer {$customerName} telah dihapus permanen.");
     }
 
     public function export()

@@ -30,44 +30,78 @@
     </div>
 
     {{-- Filter & Add --}}
-    <div class="flex flex-wrap items-center justify-between gap-4">
-        <form method="GET" action="{{ route('users.index') }}" class="flex flex-wrap gap-3 items-end">
-            <div>
-                <input type="text" name="search" value="{{ request('search') }}"
-                       placeholder="Cari nama, email..."
-                       class="form-input">
-            </div>
-            <div>
-                <select name="role" class="form-input">
+    <div class="ds-card p-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+
+            {{-- Filter --}}
+            <form method="GET"
+                action="{{ route('users.index') }}"
+                class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+
+                {{-- Search --}}
+                <div class="relative w-full sm:w-40 shrink-0">
+                    <i data-lucide="search"
+                    class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10"></i>
+
+                    <input
+                        type="text"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="Cari nama, email..."
+                        class="form-input w-full !pl-10 bg-white"
+                    >
+                </div>
+
+                {{-- Role --}}
+                <select name="role" class="form-input w-full sm:w-40">
                     <option value="">Semua Role</option>
+
                     @foreach($roles as $role)
-                    <option value="{{ $role }}" {{ request('role') === $role ? 'selected' : '' }}>
-                        {{ ucfirst(str_replace('_', ' ', $role)) }}
-                    </option>
+                        <option value="{{ $role }}"
+                            {{ request('role') === $role ? 'selected' : '' }}>
+                            {{ ucfirst(str_replace('_', ' ', $role)) }}
+                        </option>
                     @endforeach
                 </select>
-            </div>
-            <div>
-                <select name="branch" class="form-input">
+
+                {{-- Cabang --}}
+                <select name="branch" class="form-input w-full sm:w-44">
                     <option value="">Semua Cabang</option>
+
                     @foreach($branches as $b)
-                    <option value="{{ $b->id }}" {{ request('branch') == $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
+                        <option value="{{ $b->id }}"
+                            {{ request('branch') == $b->id ? 'selected' : '' }}>
+                            {{ $b->name }}
+                        </option>
                     @endforeach
                 </select>
-            </div>
-            <button type="submit" class="btn-secondary">
-                <i data-lucide="filter" class="w-4 h-4"></i> Filter
-            </button>
-            @if(request()->hasAny(['search','role','branch']))
-            <a href="{{ route('users.index') }}" class="btn-secondary">
-                <i data-lucide="x" class="w-4 h-4"></i> Reset
+
+                {{-- Filter Button --}}
+                <button type="submit"
+                        class="btn-secondary whitespace-nowrap">
+                    <i data-lucide="filter" class="w-4 h-4"></i>
+                    Filter
+                </button>
+
+                {{-- Reset --}}
+                @if(request()->hasAny(['search','role','branch']))
+                    <a href="{{ route('users.index') }}"
+                    class="btn-secondary whitespace-nowrap">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                        Reset
+                    </a>
+                @endif
+
+            </form>
+
+            {{-- Tambah Pengguna --}}
+            <a href="{{ route('users.create') }}"
+            class="btn-primary whitespace-nowrap w-full lg:w-auto justify-center">
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                Tambah Pengguna
             </a>
-            @endif
-        </form>
-        <a href="{{ route('users.create') }}" class="btn-primary">
-            <i data-lucide="user-plus" class="w-4 h-4"></i>
-            Tambah Pengguna
-        </a>
+
+        </div>
     </div>
 
     {{-- Tabel --}}

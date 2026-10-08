@@ -49,13 +49,21 @@
             </div>
 
             <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto" x-data="{}">
-                <div class="relative flex-1 sm:w-80">
-                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
-                    <input type="text" placeholder="Cari nama atau nomor HP..."
-                           class="form-input ds-input-icon"
-                           id="search-customer"
-                           value="{{ request('search') }}"
-                           onkeyup="if(event.key === 'Enter') applyCustomerFilters()">
+                <div class="relative" style="width: 320px;">
+                    <i
+                        data-lucide="search"
+                        class="absolute w-4 h-4 text-slate-400 pointer-events-none"
+                        style="left: 12px; top: 50%; transform: translateY(-50%);"
+                    ></i>
+                
+                    <input
+                        type="text"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="Cari nama pelanggan..."
+                        class="form-input"
+                        style="width: 320px !important; padding-left: 40px !important;"
+                    >
                 </div>
 
                 @auth
@@ -146,23 +154,25 @@
                                 <div class="flex items-center justify-center gap-2">
                                     @if($isDeactivated)
                                         @auth
-                                        @if(auth()->user()->isSuperAdmin())
+                                    @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                                         <form method="POST" action="{{ route('customers.restore', $customer->id) }}" class="inline">
                                             @csrf
                                             <button type="submit" class="p-2 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-xl transition-all" title="Pulihkan" aria-label="Pulihkan {{ $customer->name }}">
                                                 <i data-lucide="rotate-ccw" class="w-4.5 h-4.5"></i>
                                             </button>
                                         </form>
-                                        <form method="POST" action="{{ route('customers.force-destroy', $customer->id) }}" id="forceDeleteCustomer_{{ $customer->id }}" class="hidden">
+                                    @endif
+                                    @if(auth()->user()->isSuperAdmin())
+                                        <form method="POST" action="{{ route('customers.force-destroy', $customer) }}" id="deleteCustomer_{{ $customer->id }}" class="hidden">
                                             @csrf @method('DELETE')
                                         </form>
-                                        <button type="button" onclick="confirmForceDelete('forceDeleteCustomer_{{ $customer->id }}', 'customer {{ $customer->name }}')"
+                                        <button type="button" onclick="confirmDelete('deleteCustomer_{{ $customer->id }}', 'customer {{ $customer->name }}')"
                                                 class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
                                                 title="Hapus Permanen"
                                                 aria-label="Hapus Permanen {{ $customer->name }}">
                                             <i data-lucide="trash-2" class="w-4.5 h-4.5"></i>
                                         </button>
-                                        @endif
+                                    @endif
                                         @endauth
                                     @else
                                     <a href="{{ route('customers.show', $customer) }}" class="p-2 text-stone-400 hover:text-bark-dark hover:bg-cream/40 rounded-xl transition-all" title="Detail" aria-label="Detail {{ $customer->name }}">
@@ -175,7 +185,7 @@
                                         <i data-lucide="message-square" class="w-4.5 h-4.5"></i>
                                     </a>
                                     @auth
-                                    @if(auth()->user()->isSuperAdmin())
+                                    @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                                     <form method="POST" action="{{ route('customers.destroy', $customer) }}" id="deleteCustomer_{{ $customer->id }}" class="hidden">
                                         @csrf @method('DELETE')
                                     </form>
@@ -242,32 +252,5 @@ function applyCustomerFilters() {
     window.location.href = '?' + params.toString();
 }
 
-function confirmForceDelete(formId, label) {
-    Swal.fire({
-        title: 'Hapus Permanen',
-        html: 'Apakah Anda yakin ingin menghapus permanen <strong>' + label + '</strong>?<br><br>Data yang dihapus <span class="text-red-600 font-bold">TIDAK DAPAT</span> dipulihkan kembali.',
-        icon: 'error',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Ya, Hapus Permanen',
-        cancelButtonText: 'Batal',
-        reverseButtons: true,
-        customClass: {
-            confirmButton: 'rounded-xl px-5 py-2.5 text-sm font-semibold',
-            cancelButton: 'rounded-xl px-5 py-2.5 text-sm font-semibold',
-            popup: 'rounded-2xl'
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Menghapus...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading(),
-            });
-            document.getElementById(formId).submit();
-        }
-    });
-}
 </script>
 @endpush

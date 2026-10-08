@@ -6,8 +6,11 @@ use App\Models\Rental;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ActivityLog;
+use App\Models\StatusHistory;
+use App\Models\Branch;
 use App\Services\RentalService;
 use App\Http\Requests\StoreRentalRequest;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +22,226 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class RentalController extends Controller
 {
     public function __construct(protected RentalService $rentalService) {}
+
+    public function downloadActivityLog(Rental $rental)
+    {
+        $user = Auth::user();
+        $allowedBranchIds = $user->isAdminToko()
+            ? ($user->branch_access_type === 'specific'
+                ? $user->accessibleBranches()->pluck('branches.id')->map(fn ($id) => (int) $id)->all()
+                : [])
+            : $user->accessible_branch_ids;
+        if ($user->isAdminToko() && $allowedBranchIds === [] && $user->branch_id) {
+            $allowedBranchIds = [(int) $user->branch_id];
+        }
+
+        abort_unless(
+            $user->isSuperAdmin()
+                || ($user->isSales() && (int) $rental->created_by === (int) $user->id)
+                || ($user->isAdminToko() && in_array((int) $rental->branch_id, $allowedBranchIds, true)),
+            403
+        );
+
+        $logs = $rental->activityLogs()
+            ->with('user')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $lines = [];
+        $lines[] = 'Rental Activity Log';
+        $lines[] = '==================';
+        $lines[] = 'Invoice: ' . $rental->invoice_number;
+        $lines[] = 'Customer: ' . optional($rental->customer)->name;
+        $lines[] = 'Generated: ' . now()->format('Y-m-d H:i:s');
+        $lines[] = '';
+        $lines[] = str_repeat('-', 80);
+
+        foreach ($logs as $log) {
+            $lines[] = '';
+            $lines[] = '[' . $log->created_at->format('Y-m-d H:i:s') . '] ' . $log->action;
+            $lines[] = 'User: ' . optional($log->user)->name . ' (ID: ' . ($log->user_id ?? '-') . ')';
+            $lines[] = 'Description: ' . $log->description;
+            if (!empty($log->old_values)) {
+                $lines[] = 'Old Values: ' . json_encode($log->old_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+            if (!empty($log->new_values)) {
+                $lines[] = 'New Values: ' . json_encode($log->new_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+            $lines[] = 'IP: ' . ($log->ip_address ?? '-');
+            $lines[] = str_repeat('-', 80);
+        }
+
+        $content = implode("\n", $lines);
+        $filename = 'rental_activity_log_' . $rental->invoice_number . '_' . now()->format('Y-m-d_H-i-s') . '.txt';
+
+        return response($content, 200, [
+            'Content-Type' => 'text/plain',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    private function rentalActivityLogQuery(Request $request): Builder
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
+        $requestedBranchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
+
+        $query = ActivityLog::query()
+            ->where('model_type', Rental::class)
+            ->with(['user', 'branch', 'rental.branch'])
+            ->orderByDesc('created_at');
+
+        if ($user->isSuperAdmin()) {
+            if ($requestedBranchId !== null) {
+                $query->whereHas('rental', fn ($rental) => $rental->where('branch_id', $requestedBranchId));
+            }
+
+            return $query;
+        }
+
+        if ($user->isAdminToko()) {
+            $branchIds = $user->branch_access_type === 'specific'
+                ? $user->accessibleBranches()->pluck('branches.id')->map(fn ($id) => (int) $id)->all()
+                : [];
+            if ($branchIds === [] && $user->branch_id) {
+                $branchIds = [(int) $user->branch_id];
+            }
+
+            abort_if($branchIds === [], 403, 'Akun Admin Toko belum memiliki cabang yang ditetapkan.');
+            abort_if($requestedBranchId !== null && ! in_array($requestedBranchId, $branchIds, true), 403, 'Cabang di luar cakupan akses.');
+            $branchIds = $requestedBranchId === null ? $branchIds : [$requestedBranchId];
+
+            return $query->whereHas('rental', fn ($rental) => $rental->whereIn('branch_id', $branchIds));
+        }
+
+        if ($user->isSales()) {
+            return $query->whereHas('rental', fn ($rental) => $rental->where('created_by', $user->id));
+        }
+
+        abort(403);
+    }
+
+    public function activityLog(Request $request)
+    {
+        $user = Auth::user();
+        $isSuperAdmin = $user->isSuperAdmin();
+
+        $query = $this->rentalActivityLogQuery($request);
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->input('date_to'));
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('description', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%"))
+                  ->orWhereHas('rental', fn($r) => $r->where('invoice_number', 'like', "%{$search}%"));
+            });
+        }
+
+        $logs = $query->paginate(50)->withQueryString();
+        $branches = $isSuperAdmin ? Branch::orderBy('name')->get() : collect();
+
+        return view('rentals.activity-log', compact('logs', 'branches', 'isSuperAdmin'));
+    }
+
+    public function exportActivityLogExcel(Request $request)
+    {
+        $user = Auth::user();
+        $query = $this->rentalActivityLogQuery($request);
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->input('date_to'));
+        }
+
+        $logs = $query->get();
+
+        $filename = 'rental_activity_log_' . now()->format('Y-m-d_H-i-s') . '.csv';
+
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Pragma'              => 'no-cache',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
+        ];
+
+        $callback = function () use ($logs) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($handle, [
+                'Waktu',
+                'Cabang',
+                'User',
+                'Aksi',
+                'Deskripsi',
+                'Invoice',
+                'IP Address',
+            ], ';');
+
+            foreach ($logs as $log) {
+                $rental = \App\Models\Rental::find($log->model_id);
+                fputcsv($handle, [
+                    $log->created_at?->format('Y-m-d H:i:s'),
+                    $log->rental?->branch?->name ?? $log->branch?->name,
+                    $log->user?->name,
+                    $log->action,
+                    $log->description,
+                    $rental?->invoice_number,
+                    $log->ip_address,
+                ], ';');
+            }
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportActivityLogPdf(Request $request)
+    {
+        $user = Auth::user();
+        $isSuperAdmin = $user->isSuperAdmin();
+        $query = $this->rentalActivityLogQuery($request);
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->input('date_to'));
+        }
+
+        $logs = $query->get();
+        $branchName = $isSuperAdmin && $request->filled('branch_id')
+            ? (Branch::find($request->input('branch_id'))?->name ?? 'Semua Cabang')
+            : ($user->branch?->name ?? 'Semua Cabang');
+
+        $pdf = Pdf::loadView('reports.pdf.rental-activity-log', [
+            'logs'        => $logs,
+            'branchName'  => $branchName,
+            'startDate'   => $request->input('date_from'),
+            'endDate'     => $request->input('date_to'),
+            'generatedAt' => now()->format('d/m/Y H:i'),
+            'generatedBy' => $user->name,
+        ])->setPaper('a4', 'landscape');
+
+        $filename = 'laporan-activity-log-' . now()->format('Ymd') . '.pdf';
+
+        return $pdf->download($filename);
+    }
 
     private function qrisData(): array
     {
@@ -41,8 +264,8 @@ class RentalController extends Controller
 
         if ($user->role === "sales") {
             $query->where("created_by", $user->id);
-        } elseif (!$user->isSuperAdmin()) {
-            $query->where("branch_id", $user->branch_id);
+        } elseif (!$user->isSuperAdmin() && $user->branch_access_type === 'specific') {
+            $query->whereIn("branch_id", $user->accessible_branch_ids);
         }
 
         if ($request->has("status") && $request->status) {
@@ -75,13 +298,13 @@ class RentalController extends Controller
         $user = Auth::user();
         $customers = Customer::when($user->role === "sales", function($q) use ($user) {
             $q->where("user_id", $user->id);
-        })->when(!$user->isSuperAdmin() && $user->role !== "sales", function($q) use ($user) {
-            $q->where("branch_id", $user->branch_id);
+        })->when(!$user->isSuperAdmin() && $user->role !== "sales" && $user->branch_access_type === 'specific', function($q) use ($user) {
+            $q->whereIn("branch_id", $user->accessible_branch_ids);
         })->get();
 
-        $products = Product::when(!$user->isSuperAdmin(), function($q) use ($user) {
-            $q->whereHas('branches', fn($bq) => $bq->where('branches.id', $user->branch_id));
-        })->where("status", "available")->where("stock_available", ">", 0)->get();
+        $products = Product::when(!$user->isSuperAdmin() && $user->branch_access_type === 'specific', function($q) use ($user) {
+            $q->whereHas('branches', fn($bq) => $bq->whereIn('branches.id', $user->accessible_branch_ids));
+        })->where("status", "available")->where("stock_available", ">", 0)->with('sizes')->get();
 
         $qris = $this->qrisData();
 
@@ -96,9 +319,29 @@ class RentalController extends Controller
 
     public function show(Rental $rental)
     {
-        $rental->load(["customer", "items.product.category", "createdBy", "payments", "guarantees", "activityLogs.user", "branch"]);
+        $user = Auth::user();
+    
+        if (
+            !$user ||
+            (!$user->isSuperAdmin() && !$user->canAccessBranch((int) $rental->branch_id))
+        ) {
+            return response()->view('errors.rental-not-found', [], 404);
+        }
+    
+        $rental->load([
+            "customer",
+            "items.product.category",
+            "createdBy",
+            "returnedBy",
+            "payments",
+            "guarantees",
+            "activityLogs.user",
+            "branch"
+        ]);
+    
         $rentalData = $this->rentalService->buildDetailPayload($rental);
         $qris = $this->qrisData();
+    
         return view("rentals.show", compact("rental", "rentalData", "qris"));
     }
 
@@ -108,15 +351,15 @@ class RentalController extends Controller
         if (!$user || !$user->canManage()) abort(403);
 
         $rental->load(["customer", "items.product", "guarantees"]);
-        $customers = Customer::when(!$user->isSuperAdmin(), function($q) use ($user) {
+        $customers = Customer::when($user->isSales(), function($q) use ($user) {
             $q->where("branch_id", $user->branch_id);
         })->get();
 
         $products = Product::whereHas("category", function($q) {
             $q->where("name", "like", "Jas%");
-        })->when(!$user->isSuperAdmin(), function($q) use ($user) {
+        })->when($user->isSales(), function($q) use ($user) {
             $q->where("branch_id", $user->branch_id);
-        })->get();
+        })->with('sizes')->get();
 
         $qris = $this->qrisData();
 
@@ -137,10 +380,10 @@ class RentalController extends Controller
             if ((string) $request->input('customer_id') !== (string) $rental->customer_id) {
                 $lockedFieldErrors[] = 'Pelanggan';
             }
-            if ($request->input('rental_date') !== $rental->rental_date?->format('Y-m-d')) {
+            if ($request->has('rental_date') && $request->input('rental_date') !== $rental->rental_date?->format('Y-m-d')) {
                 $lockedFieldErrors[] = 'Tanggal Sewa';
             }
-            if ($request->input('return_due_date') !== $rental->return_due_date?->format('Y-m-d')) {
+            if ($request->has('return_due_date') && $request->input('return_due_date') !== $rental->return_due_date?->format('Y-m-d')) {
                 $lockedFieldErrors[] = 'Tanggal Pengembalian';
             }
 
@@ -149,12 +392,14 @@ class RentalController extends Controller
                 ->mapWithKeys(fn($i) => [(string) $i->product_id => (string) $i->quantity])
                 ->all();
 
-            $submittedItemMap = collect($request->input('items', []))
-                ->mapWithKeys(fn($i) => [(string) $i['product_id'] => (string) $i['quantity']])
-                ->all();
+            if ($request->has('items')) {
+                $submittedItemMap = collect($request->input('items', []))
+                    ->mapWithKeys(fn($i) => [(string) $i['product_id'] => (string) $i['quantity']])
+                    ->all();
 
-            if (count($originalItemMap) !== count($submittedItemMap) || $originalItemMap !== $submittedItemMap) {
-                $lockedFieldErrors[] = 'Item Disewa (produk/jumlah)';
+                if (count($originalItemMap) !== count($submittedItemMap) || $originalItemMap !== $submittedItemMap) {
+                    $lockedFieldErrors[] = 'Item Disewa (produk/jumlah)';
+                }
             }
 
             if ($lockedFieldErrors) {
@@ -174,17 +419,20 @@ class RentalController extends Controller
             "notes" => "nullable|string",
             "payment_method" => "nullable|string|in:cash,qris,transfer",
             "guarantee_type" => "nullable|string|in:ktp,sim,deposit,custom",
+            "guarantee_deposit" => "nullable|numeric|min:0",
             "guarantee_id_number" => "nullable|string|max:50",
             "guarantee_notes" => "nullable|string|max:500",
             "remove_guarantee_photo" => "nullable|in:0,1",
             "guarantee_id_photo" => "nullable|image|mimes:jpeg,png,jpg|max:2048",
             "items" => "required|array|min:1",
             "items.*.product_id" => "required|exists:products,id",
-            "items.*.product_size" => "required|in:XS,S,M,L,XL,XXL,3XL,4XL",
+            "items.*.product_size" => "required|in:XS,S,M,L,XL,XXL,3XL,4XL,5XL,6XL,7XL",
             "items.*.quantity" => "required|integer|min:1",
         ]);
 
-        DB::transaction(function () use ($rental, $data, $request) {
+        $oldValues = app(\App\Services\RentalService::class)->rentalSnapshotWhitelisted($rental);
+
+        DB::transaction(function () use ($rental, $data, $request, $oldValues) {
             $rental->update([
                 "customer_id" => $data["customer_id"],
                 "rental_date" => $data["rental_date"],
@@ -216,11 +464,10 @@ class RentalController extends Controller
             }
 
             // Lock and restore old stock
-            $oldItems = $rental->items()->get(["id","product_id","quantity"]);
+            $oldItems = $rental->items()->get(["id","product_id","product_size","quantity"]);
             foreach ($oldItems as $oldItem) {
                 $product = Product::whereKey($oldItem->product_id)->lockForUpdate()->firstOrFail();
-                $product->stock_available = (int)$product->stock_available + (int)$oldItem->quantity;
-                $product->save();
+                $product->incrementSizeStock($oldItem->product_size, (int)$oldItem->quantity);
             }
 
             $subtotal = 0;
@@ -236,11 +483,8 @@ class RentalController extends Controller
 
                 $requestedQty = (int)$row["quantity"];
                 if ($requestedQty <= 0) abort(422, "Quantity must be > 0.");
-                if ((int)$product->stock_available < $requestedQty) abort(422, "Requested stock is not available.");
-
-                $product->stock_available = (int)$product->stock_available - $requestedQty;
-                $product->status = ((int)$product->stock_available <= 0) ? "rented" : $product->status;
-                $product->save();
+                $remaining = $product->decrementSizeStock($row["product_size"], $requestedQty);
+                if ($remaining < 0) abort(422, "Stok ukuran {$row['product_size']} produk {$product->name} tidak mencukupi.");
 
                 $itemSubtotal = (float)$product->rental_price * $requestedQty * $durationDays;
                 $subtotal += $itemSubtotal;
@@ -292,12 +536,13 @@ class RentalController extends Controller
             $guaranteeType = $data["guarantee_type"] ?? null;
             $existingGuarantee = $rental->guarantees()->first();
 
-            if ($guaranteeType) {
-                $guaranteeData = [
-                    "type" => $guaranteeType,
-                    "id_number" => $data["guarantee_id_number"] ?? null,
-                    "description" => $data["guarantee_notes"] ?? null,
-                ];
+    if ($guaranteeType) {
+        $guaranteeData = [
+            "type" => $guaranteeType,
+            "id_number" => $data["guarantee_id_number"] ?? null,
+            "description" => $data["guarantee_notes"] ?? null,
+            "deposit_amount" => $guaranteeType === 'deposit' ? (float) ($data["guarantee_deposit"] ?? 0) : 0,
+        ];
 
                 if ($request->hasFile("guarantee_id_photo")) {
                     if ($existingGuarantee && $existingGuarantee->id_photo) {
@@ -329,25 +574,62 @@ class RentalController extends Controller
             }
         });
 
+        $rental->refresh();
+        $newValues = app(\App\Services\RentalService::class)->rentalSnapshotWhitelisted($rental);
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'branch_id' => auth()->user()->branch_id,
+            'action' => 'update_rental',
+            'model_type' => Rental::class,
+            'model_id' => $rental->id,
+            'description' => \App\Services\ActivityLogFormatter::format($oldValues, $newValues, Rental::class, $rental->id, 'update_rental'),
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
         return redirect()->route("rentals.show", $rental)->with("success", "Penyewaan berhasil diperbarui!");
     }
 
     public function destroy(Rental $rental)
     {
         $user = Auth::user();
-        if (!$user || !$user->isSuperAdmin()) abort(403);
+        if (!$user || (!$user->isSuperAdmin() && !$user->isAdminToko())) abort(403);
+        abort_unless($user->isSuperAdmin() || $user->canAccessBranch((int) $rental->branch_id), 403);
+
+        if (in_array($rental->rental_status, ['waiting', 'active', 'overdue'], true)) {
+            return back()->with('error', 'Penyewaan tidak dapat dihapus karena masih dalam status aktif.');
+        }
+
+        $oldValues = [
+            'invoice_number' => $rental->invoice_number,
+            'customer' => optional($rental->customer)->name,
+            'total_amount' => (float) $rental->total_amount,
+            'rental_status' => $rental->rental_status,
+            'payment_status' => $rental->payment_status,
+        ];
+        $rentalId = $rental->id;
 
         DB::transaction(function () use ($rental) {
-            foreach ($rental->items as $item) {
-                $product = Product::whereKey($item->product_id)->lockForUpdate()->firstOrFail();
-                $newStock = $product->stock_available + $item->quantity;
-                $product->update([
-                    "stock_available" => $newStock,
-                    "status" => ($product->status === "rented" && $newStock > 0) ? "available" : $product->status,
-                ]);
-            }
+            $rental->payments()->delete();
+            $rental->guarantees()->delete();
+            $rental->items()->delete();
+            $rental->returnRecord()->delete();
             $rental->delete();
         });
+
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'branch_id' => $user->branch_id,
+            'action' => 'rental_deleted',
+            'model_type' => Rental::class,
+            'model_id' => $rentalId,
+            'description' => \App\Services\ActivityLogFormatter::format($oldValues, null, Rental::class, $rentalId, 'rental_deleted'),
+            'old_values' => $oldValues,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return redirect()->route("rentals.index")->with("success", "Penyewaan berhasil dihapus!");
     }
@@ -384,16 +666,19 @@ class RentalController extends Controller
 
     public function processPayment(Request $request, Rental $rental)
     {
-        $this->rentalService->processPayment($rental, $request->validate([
-            "amount" => "required|numeric|min:0",
-            "method" => "required|string",
-            "payment_type" => ["nullable", "in:rental,late_fee,damage_fee,deposit"],
-            "reference_number" => "nullable|string",
-            "notes" => "nullable|string",
-        ]));
-        $rental->refresh();
-        $this->rentalService->recalculatePaymentStatus($rental);
-        return back()->with("success", "Pembayaran berhasil diproses!");
+        try {
+            $this->rentalService->processPayment($rental, $request->validate([
+                "amount" => "required|numeric|min:0",
+                "method" => "required|string",
+                "payment_type" => ["nullable", "in:rental,late_fee,damage_fee,deposit"],
+                "reference_number" => "nullable|string",
+                "notes" => "nullable|string",
+            ]));
+            $rental->refresh();
+            return back()->with("success", "Pembayaran berhasil diproses!");
+        } catch (\RuntimeException $e) {
+            return back()->with("error", $e->getMessage());
+        }
     }
 
     public function processReturn(Request $request, Rental $rental)
@@ -409,11 +694,7 @@ class RentalController extends Controller
             foreach ($rental->items as $item) {
                 if (!$item->is_returned) {
                     $product = Product::whereKey($item->product_id)->lockForUpdate()->firstOrFail();
-                    $newStock = $product->stock_available + $item->quantity;
-                    $product->update([
-                        "stock_available" => $newStock,
-                        "status" => ($product->status === "rented" && $newStock > 0) ? "available" : $product->status,
-                    ]);
+                    $product->incrementSizeStock($item->product_size, $item->quantity);
                 }
             }
         });
@@ -432,11 +713,7 @@ class RentalController extends Controller
             ]);
             foreach ($rental->items as $item) {
                 $product = Product::whereKey($item->product_id)->lockForUpdate()->firstOrFail();
-                $newStock = $product->stock_available - $item->quantity;
-                $product->update([
-                    "stock_available" => $newStock,
-                    "status" => $newStock <= 0 ? "rented" : $product->status,
-                ]);
+                $product->decrementSizeStock($item->product_size, $item->quantity);
                 $item->update(["is_returned" => false]);
             }
         });
@@ -578,12 +855,26 @@ class RentalController extends Controller
 
     public function markRefundGiven(Request $request, Rental $rental)
     {
+        $rental->refresh();
+        $this->rentalService->recalculatePaymentStatus($rental);
+        $rental->refresh();
+
+        $maxRefund = (float) ($rental->change_amount ?? 0);
+
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:0.01',
+            'amount' => 'required|numeric|min:0.01|max:' . $maxRefund,
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $this->rentalService->recordRefund($rental, $validated['amount'], $validated['notes'] ?? null);
+        try {
+            $this->rentalService->recordRefund($rental, (float) $validated['amount'], $validated['notes'] ?? null);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
         $rental->refresh();
         $rental->load(['customer', 'branch', 'guarantees', 'payments', 'items.product', 'activityLogs.user']);
 
@@ -617,13 +908,26 @@ class RentalController extends Controller
             ], 422);
         }
 
-        $oldValues = $rental->getAttributes();
         $updateData = [
             'rental_status' => Rental::STATUS_ACTIVE,
         ];
 
-        DB::transaction(function () use ($rental, $oldValues, $updateData) {
+        $rentalService = app(\App\Services\RentalService::class);
+        $oldValues = $rentalService->rentalSnapshotWhitelisted($rental);
+
+        DB::transaction(function () use ($rental, $oldValues, $updateData, $rentalService) {
             $rental->update($updateData);
+            $rental->refresh();
+
+            $newValues = $rentalService->rentalSnapshotWhitelisted($rental);
+
+            $description = \App\Services\ActivityLogFormatter::format(
+                $oldValues,
+                $newValues,
+                Rental::class,
+                $rental->id,
+                'handover_rental'
+            );
 
             ActivityLog::create([
                 'user_id'     => auth()->id(),
@@ -631,9 +935,9 @@ class RentalController extends Controller
                 'action'      => 'handover_rental',
                 'model_type'  => Rental::class,
                 'model_id'    => $rental->id,
-                'description' => auth()->user()->name . ' melakukan serah-terima jas kepada customer',
+                'description' => $description,
                 'old_values'  => $oldValues,
-                'new_values'  => $updateData,
+                'new_values'  => $newValues,
                 'ip_address'  => request()->ip(),
                 'user_agent'  => request()->userAgent(),
             ]);
@@ -659,12 +963,13 @@ class RentalController extends Controller
                 'overdue_days'           => (int) $rental->overdue_days,
                 'customer'               => ['name' => optional($rental->customer)->name, 'phone' => optional($rental->customer)->phone],
                 'branch'                 => ['name' => optional($rental->branch)->name],
-                'items'                  => $rental->items->map(fn($item) => [
-                    'id'           => $item->id,
-                    'product_name' => optional($item->product)->name,
-                    'size'         => $item->size,
-                    'quantity'     => $item->quantity,
-                    'price'        => (float) optional($item)->price,
+                'items' => $rental->items->map(fn($item) => [
+                    'id' => $item->id,
+                    'product_name' => $item->product_name ?? optional($item->product)->name,
+                    'size' => $item->product_size,
+                    'quantity' => (int) $item->quantity,
+                    'price' => (float) $item->price_per_day,
+                    'subtotal' => (float) $item->subtotal,
                 ]),
                 'rental_date'            => optional($rental->rental_date)->format('d/m/Y'),
                 'return_due_date'        => optional($rental->return_due_date)->format('d/m/Y'),
@@ -700,12 +1005,11 @@ class RentalController extends Controller
                     $overdueDays = max(0, $now->diffInDays($rental->return_due_date, false) * -1);
                     $updateData["overdue_days"] = $overdueDays;
                     $lateFeePerDay = config("app.late_fee_per_day", 0);
-                    $updateData["late_fee"] = $overdueDays * $lateFeePerDay;
+                    $updateData["late_fee"] = (float) round($overdueDays * $lateFeePerDay);
 
                     foreach ($rental->items as $item) {
                         $product = Product::whereKey($item->product_id)->lockForUpdate()->firstOrFail();
-                        $newStock = $product->stock_available + $item->quantity;
-                        $product->update(["stock_available" => $newStock, "status" => $newStock > 0 ? "available" : $product->status]);
+                        $product->incrementSizeStock($item->product_size, $item->quantity);
                         $item->update(["is_returned" => true]);
                     }
                 } else {
@@ -718,8 +1022,7 @@ class RentalController extends Controller
                     if ($rental->rental_status === 'returned') {
                         foreach ($rental->items as $item) {
                             $product = Product::whereKey($item->product_id)->lockForUpdate()->firstOrFail();
-                            $newStock = $product->stock_available - $item->quantity;
-                            $product->update(["stock_available" => $newStock, "status" => $newStock <= 0 ? "rented" : $product->status]);
+                            $product->decrementSizeStock($item->product_size, $item->quantity);
                             $item->update(["is_returned" => false]);
                         }
                     }
@@ -728,13 +1031,20 @@ class RentalController extends Controller
 
             if (!empty($updateData)) {
                 $rental->update($updateData);
+                $description = \App\Services\ActivityLogFormatter::format(
+                    $oldValues,
+                    $updateData,
+                    Rental::class,
+                    $rental->id,
+                    'update_status'
+                );
                 ActivityLog::create([
                     "user_id" => auth()->id(),
                     "branch_id" => auth()->user()->branch_id,
                     "action" => "update_status",
                     "model_type" => Rental::class,
                     "model_id" => $rental->id,
-                    "description" => auth()->user()->name . " mengubah status penyewaan",
+                    "description" => $description,
                     "old_values" => $oldValues,
                     "new_values" => $updateData,
                     "ip_address" => request()->ip(),

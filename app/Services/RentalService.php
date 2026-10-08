@@ -46,7 +46,21 @@ class RentalService
 
     public function recordRefund(Rental $rental, float $amount, ?string $notes = null): void
     {
-        DB::transaction(function () use ($rental, $amount, $notes) {
+        $rental->refresh();
+        $this->recalculatePaymentStatus($rental);
+        $rental->refresh();
+
+        $currentOverpayment = (float) ($rental->change_amount ?? 0);
+
+        if ($amount > $currentOverpayment) {
+            throw new \InvalidArgumentException(
+                "Refund amount (Rp" . number_format($amount, 0, ',', '.') . ") exceeds available overpayment (Rp" . number_format($currentOverpayment, 0, ',', '.') . ")"
+            );
+        }
+
+        $oldValues = $this->rentalSnapshot($rental);
+
+        DB::transaction(function () use ($rental, $amount, $notes, $oldValues) {
             Payment::create([
                 'rental_id'        => $rental->id,
                 'received_by'      => Auth::id(),
@@ -58,13 +72,17 @@ class RentalService
                 'paid_at'          => now(),
             ]);
 
-            $this->logActivity('record_refund', $rental, "Mencatat kembalian sebesar Rp " . number_format($amount, 0, ',', '.') . " untuk {$rental->invoice_number}");
             $this->recalculatePaymentStatus($rental);
+            $newValues = $this->rentalSnapshot($rental);
+
+            $this->logActivity('record_refund', $rental, $oldValues, $newValues);
         });
     }
 
-    public function recalculatePaymentStatus(Rental $rental): void
+    public function recalculatePaymentStatus(Rental $rental): array
     {
+        $oldValues = $this->rentalSnapshot($rental);
+
         $rentalFee = (float) $rental->total_amount;
         $fineAmount = (float) $rental->fine_amount;
 
@@ -100,11 +118,15 @@ class RentalService
             ->sum('amount'));
         $changeAmount = max(0, $grossOverpayment - $refundGiven);
 
+        $totalReceived = $totalPaidRaw - $refundGiven;
+        $availableForFine = max(0, $totalReceived - $rentalFee);
+        $finePaidAmount = min($fineAmount, $availableForFine);
+
         if ($fineAmount <= 0) {
             $fineStatus = Rental::FINE_NONE;
-        } elseif ($totalPaidRaw >= $totalOwed) {
+        } elseif ($finePaidAmount >= $fineAmount) {
             $fineStatus = Rental::FINE_PAID;
-        } elseif ($totalPaidRaw > $rentalFee) {
+        } elseif ($finePaidAmount > 0) {
             $fineStatus = Rental::FINE_PARTIAL;
         } else {
             $fineStatus = Rental::FINE_UNPAID;
@@ -114,14 +136,22 @@ class RentalService
             'paid_amount' => $totalPaidForRental,
             'payment_status' => $paymentStatus,
             'remaining_amount' => $remainingRental,
-            'fine_paid_amount' => $totalPaidForFine,
+            'fine_paid_amount' => $finePaidAmount,
             'fine_status' => $fineStatus,
             'change_amount' => $changeAmount,
         ]);
 
-        $this->logActivity('recalculate_payment_status', $rental, "Recalculate payment status untuk {$rental->invoice_number}");
+        $newValues = $this->rentalSnapshot($rental);
 
         $this->addSalesPoints($rental, 'serah', 3);
+
+        return $newValues;
+    }
+
+    public function rentalSnapshotWhitelisted(Rental $rental): array
+    {
+        $whitelist = ActivityLogFormatter::whitelistFor('Rental');
+        return array_intersect_key($this->rentalSnapshot($rental), array_flip($whitelist));
     }
 
     public function addSalesPoints(Rental $rental, string $type, int $points): void
@@ -159,6 +189,7 @@ class RentalService
             'rental_date' => $rental->rental_date?->format('d/m/Y') ?? '-',
             'return_due_date' => $rental->return_due_date?->format('d/m/Y') ?? '-',
             'created_by' => optional($rental->createdBy)->name,
+            'returned_by' => optional($rental->returnedBy)->name,
             'subtotal' => (float) ($rental->subtotal ?? 0),
             'discount' => (float) ($rental->discount ?? 0),
             'deposit' => (float) ($rental->guarantees->where('type', 'deposit')->sum('deposit_amount') ?? 0),
@@ -238,11 +269,10 @@ class RentalService
      * Format: INV{YYYYMMDD}{BB}{SSSS}
      * Example: INV20260727010001
      *
-     * Race-condition safe:
-     * - Uses lockForUpdate() on the last matching invoice
-     * - Uses withTrashed() to never reuse numbers from soft-deleted rentals
-     * - Retry loop with up to 100 attempts per branch+date
-     * - Final EXISTS check before returning
+      * Race-condition safe:
+      * - Uses lockForUpdate() on the last matching invoice
+      * - Retry loop with up to 100 attempts per branch+date
+      * - Final EXISTS check before returning
      *
      * Must be called from within a DB::transaction() with the same connection.
      *
@@ -261,8 +291,7 @@ class RentalService
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             // 1. Lock the LAST matching invoice row for today + branch
-            //    withTrashed() ensures soft-deleted invoice numbers are NEVER reused.
-            $last = Rental::withTrashed()
+            $last = Rental::query()
                 ->where('invoice_number', 'like', $pattern)
                 ->whereDate('created_at', $now->toDateString())
                 ->orderBy('id', 'desc')
@@ -280,7 +309,7 @@ class RentalService
             // 4. Verify uniqueness with EXISTS check
             //    (pessimistic lock above prevents concurrent inserts,
             //     but this double-check ensures correctness)
-            $exists = Rental::withTrashed()
+            $exists = Rental::query()
                 ->where('invoice_number', $candidate)
                 ->lockForUpdate()
                 ->exists();
@@ -336,7 +365,7 @@ class RentalService
             }
 
             // ─── STEP 3: Resolve rental branch ───
-            $branchId = $user->branch_id ?? $branchIds->first();
+            $branchId = $branchIds->first();
 
             if ($branchId === null) {
                 throw ValidationException::withMessages([
@@ -344,10 +373,10 @@ class RentalService
                 ]);
             }
 
-            // ─── STEP 4: Verify non-super-admin users own the branch ───
-            if (!$user->isSuperAdmin() && (int) $user->branch_id !== (int) $branchId) {
+            // ─── STEP 4: Verify non-super-admin users can access the branch ───
+            if (!$user->isSuperAdmin() && !$user->canAccessBranch((int) $branchId)) {
                 throw ValidationException::withMessages([
-                    'items' => 'Produk bukan berasal dari cabang Anda.',
+                    'items' => 'Produk bukan berasal dari cabang yang Anda akses.',
                 ]);
             }
 
@@ -400,17 +429,13 @@ class RentalService
                     'subtotal'      => $itemSubtotal,
                 ]);
 
-                // Reduce stock (locked row guaranteed fresh)
-                $newStock = $product->stock_available - $item['quantity'];
-                if ($newStock < 0) {
+                // Reduce stock per-size
+                $remaining = $product->decrementSizeStock($item['product_size'], $item['quantity']);
+                if ($remaining < 0) {
                     throw ValidationException::withMessages([
-                        'items' => "Stok produk {$product->name} tidak mencukupi (tersedia: {$product->stock_available}, diminta: {$item['quantity']}).",
+                        'items' => "Stok ukuran {$item['product_size']} produk {$product->name} tidak mencukupi (tersedia: {$product->stock_available}, diminta: {$item['quantity']}).",
                     ]);
                 }
-                $product->update([
-                    'stock_available' => $newStock,
-                    'status'          => $newStock <= 0 ? 'rented' : $product->status,
-                ]);
             }
 
             // Create guarantee - handle flat form fields
@@ -454,15 +479,17 @@ class RentalService
             $this->generateQrCode($rental);
 
             // Log activity
-            $this->logActivity('create_rental', $rental, "Membuat penyewaan {$rental->invoice_number}");
+            $this->logActivity('create_rental', $rental, [], $this->rentalSnapshot($rental));
 
             return $rental->fresh(['items', 'customer', 'guarantees']);
         });
     }
 
-    public function processPayment(Rental $rental, array $data): Payment
+     public function processPayment(Rental $rental, array $data): Payment
     {
-        return DB::transaction(function () use ($rental, $data) {
+        $oldValues = $this->rentalSnapshot($rental);
+
+        return DB::transaction(function () use ($rental, $data, $oldValues) {
             $amount = $data['amount'] ?? 0;
             if (is_string($amount)) {
                 $amount = preg_replace('/[^0-9]/', '', $amount);
@@ -470,6 +497,19 @@ class RentalService
             $amount = (float) $amount;
             $now = now();
             $paymentType = $data['payment_type'] ?? 'rental';
+
+            $recentPayment = Payment::where('rental_id', $rental->id)
+                ->where('amount', $amount)
+                ->where('method', $data['method'])
+                ->where('type', $paymentType)
+                ->where('created_at', '>=', $now->copy()->subSeconds(5))
+                ->lockForUpdate()
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($recentPayment) {
+                throw new \RuntimeException('Pembayaran yang sama sudah diproses 2 detik yang lalu. Jika ini tidak benar, coba lagi dalam beberapa saat.');
+            }
 
             $payment = Payment::create([
                 'rental_id'        => $rental->id,
@@ -505,8 +545,9 @@ class RentalService
             $rental->update($updateData);
 
             $this->recalculatePaymentStatus($rental);
+            $newValues = $this->rentalSnapshot($rental);
 
-            $this->logActivity('process_payment', $rental, "Pembayaran {$payment->payment_number} sebesar Rp " . number_format($data['amount'], 0, ',', '.'));
+            $this->logActivity('process_payment', $rental, $oldValues, $newValues);
 
             $this->addSalesPoints($rental, 'serah', 3);
 
@@ -516,7 +557,9 @@ class RentalService
 
     public function processReturn(Rental $rental, array $data = []): Rental
     {
-        return DB::transaction(function () use ($rental, $data) {
+        $oldValues = $this->rentalSnapshot($rental);
+
+        return DB::transaction(function () use ($rental, $data, $oldValues) {
             $now = now();
             $lateFee = 0;
             $totalDamageFees = 0;
@@ -524,7 +567,7 @@ class RentalService
             if ($rental->return_due_date->lt($now)) {
                 $overdueDays = $rental->return_due_date->diffInDays($now);
                 $dailyRate = $rental->subtotal / $rental->duration_days;
-                $lateFee = $dailyRate * $overdueDays * 0.5;
+                $lateFee = (float) round($dailyRate * $overdueDays * 0.5);
             }
 
             foreach ($rental->items as $item) {
@@ -536,24 +579,45 @@ class RentalService
                 $totalDamageFees += $damageFee;
 
                 $item->update([
-                    'is_returned'      => true,
-                    'returned_at'      => $now,
-                    'return_condition' => $condition,
-                    'damage_fee'       => $damageFee,
-                    'return_notes'     => $returnData['notes'] ?? null,
+                    'is_returned'        => true,
+                    'returned_at'        => $now,
+                    'return_condition'   => $condition,
+                
+                    'maintenance_status' => in_array(
+                        $condition,
+                        ['rusak_ringan', 'rusak_berat']
+                    ) ? 'pending' : null,
+                
+                    'damage_fee'         => $damageFee,
+                    'return_notes'       => $returnData['notes'] ?? null,
                 ]);
 
-                $product = Product::whereKey($item->product_id)->lockForUpdate()->firstOrFail();
-                $newStock = $product->stock_available + $item->quantity;
-                $product->update([
-                    'stock_available' => $newStock,
-                    'status' => ($product->status === 'rented' && $newStock > 0) ? 'available' : $product->status,
-                ]);
+                $product = Product::whereKey($item->product_id)->lockForUpdate()->first();
+
+                if ($product) {
+                    // Hanya barang yang kembali dalam kondisi baik
+                    // yang masuk kembali ke stok tersedia.
+                    if ($condition === 'baik') {
+                        $product->incrementSizeStock(
+                            $item->product_size,
+                            $item->quantity
+                        );
+                    }
+                } else {
+                    ActivityLog::create([
+                        'user_id'   => Auth::id(),
+                        'branch_id' => Auth::user()?->branch_id,
+                        'action'    => 'product_not_found_return',
+                        'model_type' => Rental::class,
+                        'model_id'   => $rental->id,
+                        'description' => "Produk ID {$item->product_id} tidak ditemukan di database saat memproses pengembalian item ID {$item->id} (rental {$rental->invoice_number}). Stok tidak diperbarui untuk item ini.",
+                    ]);
+                }
             }
 
             $rental->guarantees()->update(['status' => 'returned', 'returned_at' => $now]);
 
-            $fineAmount = $lateFee + $totalDamageFees;
+            $fineAmount = (float) round($lateFee + $totalDamageFees);
             $rental->update([
                 'rental_status'      => Rental::STATUS_RETURNED,
                 'actual_return_date' => $now->toDateString(),
@@ -566,8 +630,9 @@ class RentalService
             ]);
 
             $this->recalculatePaymentStatus($rental);
+            $newValues = $this->rentalSnapshot($rental);
 
-            $this->logActivity('return_rental', $rental, "Pengembalian {$rental->invoice_number}");
+            $this->logActivity('return_rental', $rental, $oldValues, $newValues);
 
             $this->addSalesPoints($rental, 'kembali', 5);
 
@@ -603,8 +668,44 @@ class RentalService
             ->update(['rental_status' => Rental::STATUS_OVERDUE]);
     }
 
-    protected function logActivity(string $action, Rental $rental, string $description): void
+    protected function rentalSnapshot(Rental $rental): array
     {
+        return [
+            'id'                     => $rental->id,
+            'invoice_number'         => $rental->invoice_number,
+            'rental_status'          => $rental->rental_status,
+            'payment_status'         => $rental->payment_status,
+            'fine_status'            => $rental->fine_status,
+            'paid_amount'            => (float) ($rental->paid_amount ?? 0),
+            'remaining_amount'       => (float) ($rental->remaining_amount ?? 0),
+            'fine_paid_amount'       => (float) ($rental->fine_paid_amount ?? 0),
+            'fine_amount'            => (float) ($rental->fine_amount ?? 0),
+            'late_fee'               => (float) ($rental->late_fee ?? 0),
+            'total_amount'           => (float) ($rental->total_amount ?? 0),
+            'change_amount'          => (float) ($rental->change_amount ?? 0),
+            'overdue_days'           => (int) ($rental->overdue_days ?? 0),
+            'subtotal'               => (float) ($rental->subtotal ?? 0),
+            'discount'               => (float) ($rental->discount ?? 0),
+            'notes'                  => $rental->notes ?? null,
+            'payment_method'         => $rental->payment_method ?? null,
+            'returned_by'            => $rental->returned_by,
+            'actual_return_date'     => $rental->actual_return_date?->format('Y-m-d'),
+            'return_due_date'        => $rental->return_due_date?->format('Y-m-d'),
+            'rental_date'            => $rental->rental_date?->format('Y-m-d'),
+            'customer'               => optional($rental->customer)->name ?? '-',
+        ];
+    }
+
+    protected function logActivity(string $action, Rental $rental, ?array $oldValues = null, ?array $newValues = null): void
+    {
+        $description = \App\Services\ActivityLogFormatter::format(
+            $oldValues,
+            $newValues,
+            Rental::class,
+            $rental->id,
+            $action
+        );
+
         ActivityLog::create([
             'user_id'     => Auth::id(),
             'branch_id'   => Auth::user()?->branch_id,
@@ -612,6 +713,8 @@ class RentalService
             'model_type'  => Rental::class,
             'model_id'    => $rental->id,
             'description' => $description,
+            'old_values'  => $oldValues ?: null,
+            'new_values'  => $newValues ?: null,
             'ip_address'  => request()->ip(),
             'user_agent'  => request()->userAgent(),
         ]);

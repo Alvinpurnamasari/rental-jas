@@ -15,16 +15,29 @@ use Illuminate\Support\Facades\DB;
 class BroadcastCampaignController extends Controller
 {
     public function index(Request $request)
-    {
-        $user = $request->user();
+{
+    $user = $request->user();
 
-        $campaigns = BroadcastCampaign::query()
-            ->when(!$user->isSuperAdmin(), fn ($q) => $q->where('branch_id', $user->branch_id))
-            ->latest()
-            ->paginate(20);
+    $campaigns = BroadcastCampaign::query()
+        ->when(
+            !$user->isSuperAdmin() && $user->branch_access_type === 'specific',
+            fn ($q) => $q->whereIn('branch_id', $user->accessible_branch_ids)
+        )
+        ->withCount([
+            'logs as progress_success' => function ($q) {
+                $q->whereIn('status', [
+                    'submitted',
+                    'sent',
+                    'delivered',
+                    'read',
+                ]);
+            },
+        ])
+        ->latest()
+        ->paginate(20);
 
-        return view('broadcast_campaigns.index', compact('campaigns'));
-    }
+    return view('broadcast_campaigns.index', compact('campaigns'));
+}
 
     public function create(Request $request)
     {
@@ -32,20 +45,20 @@ class BroadcastCampaignController extends Controller
 
         $templates = BroadcastTemplate::query()
             ->where('is_active', true)
-            ->when(!$user->isSuperAdmin(), fn ($q) => $q->where('branch_id', $user->branch_id))
+            ->when(!$user->isSuperAdmin() && $user->branch_access_type === 'specific', fn ($q) => $q->whereIn('branch_id', $user->accessible_branch_ids))
             ->get(['id', 'name', 'category', 'variables']);
 
         $branches = $user->isSuperAdmin()
             ? Branch::orderBy('name')->get(['id', 'name'])
-            : Branch::where('id', $user->branch_id)->get(['id', 'name']);
+            : Branch::whereIn('id', $user->accessible_branch_ids)->get(['id', 'name']);
 
         $customers = Customer::query()
-            ->when(!$user->isSuperAdmin(), fn ($q) => $q->where('branch_id', $user->branch_id))
+            ->when(!$user->isSuperAdmin() && $user->branch_access_type === 'specific', fn ($q) => $q->whereIn('branch_id', $user->accessible_branch_ids))
             ->get(['id', 'name', 'phone', 'branch_id']);
 
         $users = User::query()
             ->where('is_active', true)
-            ->when(!$user->isSuperAdmin(), fn ($q) => $q->where('branch_id', $user->branch_id))
+            ->when(!$user->isSuperAdmin() && $user->branch_access_type === 'specific', fn ($q) => $q->whereIn('branch_id', $user->accessible_branch_ids))
             ->when($user->isSuperAdmin(), fn ($q) => $q->where('id', '!=', $user->id))
             ->when($user->isAdminToko(), function ($q) use ($user) {
                 $q->whereIn('role', [User::ROLE_ADMIN_TOKO, User::ROLE_SALES])
@@ -100,11 +113,18 @@ class BroadcastCampaignController extends Controller
             'custom_message_single' => ['nullable', 'string', 'max:2000'],
             'message_template' => ['nullable', 'string', 'max:2000'],
             'target_filters' => ['nullable', 'array'],
+            'target_filters.branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
             'recipient_ids' => ['nullable', 'array'],
             'recipient_ids.*' => ['integer'],
             'delay_seconds' => ['nullable', 'integer', 'min:0', 'max:3600'],
         ]);
+
+        $targetBranchId = $validated['target_filters']['branch_id'] ?? null;
+        if ($targetBranchId !== null && !$user->isSuperAdmin()) {
+            abort_unless($user->canAccessBranch((int) $targetBranchId), 403, 'Cabang di luar cakupan akses.');
+        }
+        $validated['branch_id'] = $targetBranchId ?? $user->branch_id;
 
         if ($channel === 'in_app' && !empty($validated['custom_message_single'])) {
             $validated['custom_message'] = $validated['custom_message_single'];
@@ -129,7 +149,7 @@ class BroadcastCampaignController extends Controller
             if (!empty($selectedUserIds)) {
                 $allowedUserIds = User::query()
                     ->where('is_active', true)
-                    ->when(!$user->isSuperAdmin(), fn ($q) => $q->where('branch_id', $user->branch_id))
+                    ->when(!$user->isSuperAdmin() && $user->branch_access_type === 'specific', fn ($q) => $q->whereIn('branch_id', $user->accessible_branch_ids))
                     ->when($user->isSuperAdmin(), fn ($q) => $q->where('id', '!=', $user->id))
                     ->when($user->isAdminToko(), function ($q) use ($user) {
                         $q->whereIn('role', [User::ROLE_ADMIN_TOKO, User::ROLE_SALES])
@@ -149,7 +169,6 @@ class BroadcastCampaignController extends Controller
         $channels = [$channel];
 
         $validated['created_by'] = $user->id;
-        $validated['branch_id'] = $validated['branch_id'] ?? $user->branch_id;
         $validated['status'] = 'draft';
         $validated['type'] = 'manual';
         $validated['channels'] = $channels;
@@ -167,6 +186,7 @@ class BroadcastCampaignController extends Controller
 
     public function show(Request $request, BroadcastCampaign $campaign)
     {
+        $this->authorizeCampaignBranch($request, $campaign);
         $campaign = $campaign->load(['logs.recipient', 'template', 'creator', 'branch']);
 
         return view('broadcast_campaigns.show', compact('campaign'));
@@ -174,6 +194,11 @@ class BroadcastCampaignController extends Controller
 
     public function sendToCustomer(Request $request, BroadcastCampaign $campaign, Customer $customer)
     {
+        $this->authorizeCampaignBranch($request, $campaign);
+        if ($request->user()->isAdminToko()) {
+            abort_unless((int) $customer->branch_id === (int) $campaign->branch_id, 403);
+        }
+
         if ($campaign->status === 'completed') {
             return back()->with('error', 'Campaign ini sudah selesai.');
         }
@@ -217,6 +242,8 @@ class BroadcastCampaignController extends Controller
 
     public function updateMessage(Request $request, BroadcastCampaign $campaign)
     {
+        $this->authorizeCampaignBranch($request, $campaign);
+
         if ($campaign->status === 'completed') {
             return response()->json(['error' => 'Campaign ini sudah selesai.'], 400);
         }
@@ -234,11 +261,7 @@ class BroadcastCampaignController extends Controller
 
     public function destroy(Request $request, BroadcastCampaign $campaign)
     {
-        $user = $request->user();
-
-        if (!$user->isSuperAdmin()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        $this->authorizeCampaignBranch($request, $campaign);
 
         DB::transaction(function () use ($campaign) {
             BroadcastLog::where('campaign_id', $campaign->id)->delete();
@@ -246,6 +269,16 @@ class BroadcastCampaignController extends Controller
         });
 
         return response()->json(['status' => 'ok']);
+    }
+
+    private function authorizeCampaignBranch(Request $request, BroadcastCampaign $campaign): void
+    {
+        $user = $request->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->isAdminToko()), 403);
+
+        if ($user->isAdminToko()) {
+            abort_unless($campaign->branch_id && $user->canAccessBranch((int) $campaign->branch_id), 403);
+        }
     }
 
     public function handleOptOut(Request $request)

@@ -6,7 +6,7 @@
 
 @section('content')
     <!-- Quick Actions & Filters -->
-    <div class="ds-card mb-6">
+    <div class="ds-card mb-6 px-6 py-6">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div class="flex items-center gap-3 flex-wrap">
                 <a href="{{ route('rentals.create') }}" class="btn-primary">
@@ -16,8 +16,24 @@
             </div>
 
             <form method="GET" class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari invoice atau pelanggan..." class="form-input sm:w-64">
 
+                <div class="relative" style="width: 256px;">
+                    <i
+                        data-lucide="search"
+                        class="absolute w-4 h-4 text-slate-400 pointer-events-none"
+                        style="left: 12px; top: 50%; transform: translateY(-50%);"
+                    ></i>
+                
+                    <input
+                        type="text"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="Cari invoice atau pelanggan..."
+                        class="form-input"
+                        style="width: 256px !important; padding-left: 40px !important;"
+                    >
+                </div>
+            
                 <select name="status" class="form-input sm:w-44">
                     <option value="">Semua Status</option>
                     <option value="waiting" {{ request('status') === 'waiting' ? 'selected' : '' }}>Menunggu</option>
@@ -26,18 +42,19 @@
                     <option value="overdue" {{ request('status') === 'overdue' ? 'selected' : '' }}>Terlambat</option>
                     <option value="returned" {{ request('status') === 'returned' ? 'selected' : '' }}>Selesai</option>
                 </select>
-
+            
                 <button type="submit" class="btn-filter whitespace-nowrap">
                     <i data-lucide="filter" class="w-4 h-4"></i>
                     Filter
                 </button>
-
+            
                 @if(request('search') || request('status'))
                     <a href="{{ route('rentals.index') }}" class="btn-secondary whitespace-nowrap">
                         <i data-lucide="x" class="w-4 h-4"></i>
                         Reset
                     </a>
                 @endif
+            
             </form>
         </div>
     </div>
@@ -126,7 +143,13 @@
                                 </a>
                                 @auth
                                 @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
-                                <a href="{{ route('rentals.edit', $rental) }}" class="action-btn" title="Edit">
+                                @php
+                                    $isRentalLocked = in_array($rental->rental_status, ['active', 'overdue']) || $rental->payment_status === 'paid';
+                                @endphp
+                                          <a href="{{ $isRentalLocked ? '#' : route('rentals.edit', $rental) }}"
+                                              class="action-btn {{ $isRentalLocked ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                   title="{{ $isRentalLocked ? 'Penyewaan sedang berjalan atau sudah dibayar' : 'Edit' }}"
+                                   @if($isRentalLocked) onclick="event.preventDefault(); return false;" @endif>
                                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                                 </a>
                                 @endif
@@ -143,7 +166,7 @@
                                 </a>
 
                                 @auth
-                                @if(auth()->user()->isSuperAdmin())
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                                 <form method="POST" action="{{ route('rentals.destroy', $rental) }}" id="deleteRentalForm_{{ $rental->id }}" class="hidden">
                                     @csrf
                                     @method('DELETE')

@@ -12,7 +12,11 @@ use Illuminate\Validation\Rule;
 
 class BroadcastController extends Controller
 {
-    public function __construct(private NotificationService $notificationService) {}
+    public function __construct(private NotificationService $notificationService)
+    {
+        $this->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')
+            ->only(['index', 'store', 'destroy']);
+    }
 
     public function index(Request $request)
     {
@@ -22,14 +26,14 @@ class BroadcastController extends Controller
         $broadcasts = Notification::query()
             ->where('type', 'system')
             ->where('title', 'like', 'Broadcast:%')
-            ->when(!$user->isSuperAdmin(), fn (Builder $q) => $q->where('branch_id', $user->branch_id))
+            ->when(!$user->isSuperAdmin() && $user->branch_access_type === 'specific', fn (Builder $q) => $q->whereIn('branch_id', $user->accessible_branch_ids))
             ->latest()
             ->limit(40)
             ->get();
 
         $branches = $user->isSuperAdmin()
             ? Branch::orderBy('name')->get(['id', 'name'])
-            : Branch::where('id', $user->branch_id)->get(['id', 'name']);
+            : Branch::whereIn('id', $user->accessible_branch_ids)->get(['id', 'name']);
 
         $roleOptions = [
             User::ROLE_ADMIN_TOKO => 'Admin Cabang',
@@ -59,8 +63,8 @@ class BroadcastController extends Controller
 
         $recipients = User::query()->active();
 
-        if (!$user->isSuperAdmin()) {
-            $recipients->where('branch_id', $user->branch_id)
+        if (!$user->isSuperAdmin() && $user->branch_access_type === 'specific') {
+            $recipients->whereIn('branch_id', $user->accessible_branch_ids)
                 ->whereIn('role', [User::ROLE_ADMIN_TOKO, User::ROLE_SALES]);
             $validated['branch_id'] = $user->branch_id;
         }
@@ -71,7 +75,9 @@ class BroadcastController extends Controller
 
         if ($validated['target'] === 'branch') {
             $branchId = $user->isSuperAdmin() ? ($validated['branch_id'] ?? null) : $user->branch_id;
-            $recipients->where('branch_id', $branchId);
+            if ($branchId !== null) {
+                $recipients->where('branch_id', $branchId);
+            }
             $validated['branch_id'] = $branchId;
         }
 
@@ -110,5 +116,22 @@ class BroadcastController extends Controller
         return redirect()
             ->route('broadcasts.index')
             ->with('success', 'Broadcast berhasil dikirim ke ' . count($recipientIds) . ' pengguna.');
+    }
+
+    public function destroy(Request $request, Notification $broadcast)
+    {
+        $user = $request->user();
+        if (!$user || (!$user->isSuperAdmin() && !$user->isAdminToko())) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if (!$broadcast->title || !str_starts_with($broadcast->title, 'Broadcast:')) {
+            abort(404);
+        }
+
+        $broadcast->delete();
+
+        return redirect()->route('broadcasts.index')
+            ->with('success', 'Broadcast berhasil dihapus.');
     }
 }

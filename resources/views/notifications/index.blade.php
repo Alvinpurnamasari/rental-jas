@@ -19,8 +19,6 @@
         </form>
     </div>
 
-    @include('components.flash-messages')
-
     <div class="card p-5">
         <form method="GET" action="{{ route('notifications.index') }}" class="flex flex-col sm:flex-row gap-3 items-end justify-between">
             <div class="w-full sm:w-72">

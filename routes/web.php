@@ -12,10 +12,12 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\BroadcastCampaignController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\QrScanHistoryController;
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
@@ -40,6 +42,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
     // ─── DASHBOARD ───────────────────────────────────────────────────
     Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko,sales')->name('dashboard');
     Route::get('/dashboard/data', [DashboardController::class, 'data'])->middleware('auth')->name('dashboard.data');
+    Route::get('/dashboard/activity-log/download', [DashboardController::class, 'downloadActivityLog'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin')->name('dashboard.activity-log.download');
     Route::get('/search', [SearchController::class, 'index'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko,sales')->name('search.index');
 
     // ─── PROFILE ─────────────────────────────────────────────────────
@@ -60,6 +63,12 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
         Route::get('/{id}', [NotificationController::class, 'show'])->name('notifications.show');
     });
 
+    Route::prefix('broadcasts')->name('broadcasts.')->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')->group(function () {
+        Route::get('/', [BroadcastController::class, 'index'])->name('index');
+        Route::post('/', [BroadcastController::class, 'store'])->name('store');
+        Route::delete('/{broadcast}', [BroadcastController::class, 'destroy'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')->name('destroy');
+    });
+
     Route::prefix('broadcast-campaigns')
         ->name('broadcast-campaigns.')
         ->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')
@@ -70,7 +79,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
             Route::get('/{campaign}', [BroadcastCampaignController::class, 'show'])->name('show');
             Route::post('/{campaign}/send/{customer}', [BroadcastCampaignController::class, 'sendToCustomer'])->name('send-to-customer');
             Route::post('/{campaign}/message', [BroadcastCampaignController::class, 'updateMessage'])->name('update-message');
-            Route::delete('/{campaign}', [BroadcastCampaignController::class, 'destroy'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin')->name('destroy');
+            Route::delete('/{campaign}', [BroadcastCampaignController::class, 'destroy'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')->name('destroy');
         });
 
     // ─── CUSTOMER (MASTER DATA) ──────────────────────────────────────
@@ -87,11 +96,11 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
             Route::patch('/{customer}/blacklist', [CustomerController::class, 'toggleBlacklist'])->name('blacklist');
         });
 
-        Route::get('/{customer}', [CustomerController::class, 'show'])->name('show');
+        Route::get('/{customer}', [CustomerController::class, 'show'])->withTrashed()->name('show');
         Route::post('/{customer}/restore', [CustomerController::class, 'restore'])->name('restore')->withTrashed();
 
-        Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin')->delete('/{customer}', [CustomerController::class, 'destroy'])->name('destroy');
-        Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin')->delete('/{customer}/force', [CustomerController::class, 'forceDestroy'])->name('force-destroy')->withTrashed();
+        Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')->delete('/{customer}', [CustomerController::class, 'destroy'])->name('destroy');
+        Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin')->delete('/{customer}/force-destroy', [CustomerController::class, 'forceDestroy'])->withTrashed()->name('force-destroy');
     });
 
     // ─── PENYEWAAN (RENTALS) ─────────────────────────────────────────
@@ -99,6 +108,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
         Route::get('/scan', [RentalController::class, 'scanPage'])->name('scan');
         Route::get('/scan/{invoice}', [RentalController::class, 'scanQr'])->name('scan.show')->where('invoice', '.*');
         Route::get('/', [RentalController::class, 'index'])->name('index');
+        Route::get('/activity-log', [RentalController::class, 'activityLog'])->name('activity-log');
+        Route::get('/activity-log/export/excel', [RentalController::class, 'exportActivityLogExcel'])->name('activity-log.export.excel');
+        Route::get('/activity-log/export/pdf', [RentalController::class, 'exportActivityLogPdf'])->name('activity-log.export.pdf');
         Route::get('/create', [RentalController::class, 'create'])->name('create');
         Route::post('/', [RentalController::class, 'store'])->name('store');
         Route::get('/{rental}', [RentalController::class, 'show'])->name('show');
@@ -127,7 +139,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
             Route::get('/{rental}/edit', [RentalController::class, 'edit'])->name('edit');
             Route::patch('/{rental}', [RentalController::class, 'update'])->name('update');
         });
-        Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin')->delete('/{rental}', [RentalController::class, 'destroy'])->name('destroy');
+        Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')->delete('/{rental}', [RentalController::class, 'destroy'])->name('destroy');
+        Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko,sales')->get('/{rental}/activity-log/download', [RentalController::class, 'downloadActivityLog'])->name('activity-log.download');
     });
 
     // ─── PRODUK ──────────────────────────────────────────────────────
@@ -138,11 +151,15 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
             Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
             Route::put('/{product}', [ProductController::class, 'update'])->name('update');
             Route::delete('/{product}', [ProductController::class, 'destroy'])->name('destroy');
+            Route::patch(
+                '/maintenance/{rentalItem}/complete',
+                [ProductController::class, 'completeMaintenance']
+            )->name('maintenance.complete');
         });
 
         Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko,sales')->group(function () {
             Route::get('/', [ProductController::class, 'index'])->name('index');
-            Route::get('/{product}', [ProductController::class, 'show'])->name('show');
+            Route::get('/{product}', [ProductController::class, 'show'])->name('show')->withTrashed();
             Route::patch('/{product}/update-stock', [ProductController::class, 'updateStock'])->name('update-stock');
         });
     });
@@ -187,11 +204,30 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
     });
 
     // ─── LAPORAN ─────────────────────────────────────────────────────
-    Route::prefix('reports')->group(function () {
+    Route::prefix('reports')->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')->group(function () {
         Route::get('/revenue', [ReportController::class, 'revenue'])->name('reports.revenue');
         Route::get('/transactions', [ReportController::class, 'transactions'])->name('reports.transactions');
         Route::get('/returns', [ReportController::class, 'returns'])->name('reports.returns');
         Route::get('/stock', [ReportController::class, 'stock'])->name('reports.stock');
+        Route::get('/customers', [ReportController::class, 'customers'])->name('reports.customers');
+        Route::get('/payments', [ReportController::class, 'payments'])->name('reports.payments');
+        Route::get('/activity-log', [ReportController::class, 'activityLog'])->name('reports.activity-log');
+        Route::get('/activity-log/export/csv', [ReportController::class, 'exportActivityLog'])->name('reports.activity-log.export.csv');
+        Route::get('/activity-log/export/pdf', [ReportController::class, 'exportActivityLogPdf'])->name('reports.activity-log.export.pdf');
+
+        Route::get('/revenue/export/excel', [ReportController::class, 'exportRevenueExcel'])->name('reports.export.revenue.excel');
+        Route::get('/revenue/export/pdf', [ReportController::class, 'exportRevenuePdf'])->name('reports.export.revenue.pdf');
+        Route::get('/transactions/export/excel', [ReportController::class, 'exportTransactionsExcel'])->name('reports.export.transactions.excel');
+        Route::get('/transactions/export/pdf', [ReportController::class, 'exportTransactionsPdf'])->name('reports.export.transactions.pdf');
+        Route::get('/returns/export/excel', [ReportController::class, 'exportReturnsExcel'])->name('reports.export.returns.excel');
+        Route::get('/returns/export/pdf', [ReportController::class, 'exportReturnsPdf'])->name('reports.export.returns.pdf');
+        Route::get('/stock/export/excel', [ReportController::class, 'exportStockExcel'])->name('reports.export.stock.excel');
+        Route::get('/stock/export/pdf', [ReportController::class, 'exportStockPdf'])->name('reports.export.stock.pdf');
+        Route::get('/customers/export/excel', [ReportController::class, 'exportCustomersExcel'])->name('reports.export.customers.excel');
+        Route::get('/customers/export/pdf', [ReportController::class, 'exportCustomersPdf'])->name('reports.export.customers.pdf');
+        Route::get('/payments/export/excel', [ReportController::class, 'exportPaymentsExcel'])->name('reports.export.payments.excel');
+        Route::get('/payments/export/pdf', [ReportController::class, 'exportPaymentsPdf'])->name('reports.export.payments.pdf');
+
         Route::get('/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
         Route::get('/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
     });
@@ -221,4 +257,12 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
 // ─── POINTS ──────────────────────────────────────────────
 Route::middleware(['auth'])->prefix('points')->name('points.')->group(function () {
     Route::get('/', [\App\Http\Controllers\PointsController::class, 'index'])->name('index');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/qr-scan-history', [QrScanHistoryController::class, 'index'])
+        ->name('qr-scan-history.index');
+
+    Route::post('/qr-scan-history', [QrScanHistoryController::class, 'store'])
+        ->name('qr-scan-history.store');
 });

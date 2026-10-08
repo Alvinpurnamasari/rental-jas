@@ -8,9 +8,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class RentalItem extends Model
 {
     protected $fillable = [
-        'rental_id', 'product_id', 'product_name', 'product_size', 'product_color',
-        'quantity', 'price_per_day', 'duration_days', 'subtotal',
-        'return_condition', 'damage_fee', 'return_notes', 'is_returned', 'returned_at',
+        'rental_id',
+        'product_id',
+        'product_name',
+        'product_size',
+        'product_color',
+        'quantity',
+        'price_per_day',
+        'duration_days',
+        'subtotal',
+        'return_condition',
+        'maintenance_status',
+        'damage_fee',
+        'return_notes',
+        'is_returned',
+        'returned_at',
     ];
 
     protected $casts = [
@@ -28,6 +40,6 @@ class RentalItem extends Model
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class)->withTrashed();
     }
 }

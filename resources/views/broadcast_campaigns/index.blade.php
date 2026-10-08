@@ -22,8 +22,8 @@
             <table class="w-full text-left text-sm">
                 <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                     <tr>
-                        <th class="px-5 py-3 font-semibold">Channel</th>
                         <th class="px-5 py-3 font-semibold">Nama Campaign</th>
+                        <th class="px-5 py-3 font-semibold">Channel</th>
                         <th class="px-5 py-3 font-semibold">Tipe Penerima</th>
                         <th class="px-5 py-3 font-semibold">Target</th>
                         <th class="px-5 py-3 font-semibold">Status</th>
@@ -75,9 +75,13 @@
                             <td class="px-5 py-3">
                                 <div class="flex items-center gap-2">
                                     <div class="flex-1 h-2 rounded-full bg-slate-100">
-                                        <div class="h-2 rounded-full bg-blue-600" style="width: {{ $campaign->total_target > 0 ? ($campaign->total_success / $campaign->total_target * 100) : 0 }}%"></div>
+                                        <div class="h-2 rounded-full bg-blue-600"
+                                            style="width: {{ $campaign->total_target > 0 ? ($campaign->progress_success / $campaign->total_target * 100) : 0 }}%">
+                                        </div>
                                     </div>
-                                    <span class="text-xs text-slate-500">{{ $campaign->total_success }}/{{ $campaign->total_target }}</span>
+                                    <span class="text-xs text-slate-500">
+                                        {{ $campaign->progress_success }}/{{ $campaign->total_target }}
+                                    </span>
                                 </div>
                             </td>
                             <td class="px-5 py-3 text-slate-500">
@@ -87,7 +91,7 @@
                                 <a href="{{ route('broadcast-campaigns.show', $campaign) }}" class="btn-ghost px-2 py-1 text-xs">
                                     Detail
                                 </a>
-                                @if(auth()->user()->isSuperAdmin())
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                                     <button type="button" onclick="openDeleteModal('{{ $campaign->id }}', '{{ $campaign->name }}')" class="btn-ghost px-2 py-1 text-xs text-red-600 hover:text-red-700 ml-1">
                                         <i data-lucide="trash-2" class="h-3.5 w-3.5 inline-block align-text-bottom"></i>
                                     </button>

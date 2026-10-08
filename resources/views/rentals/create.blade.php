@@ -143,24 +143,26 @@
                         <select x-model="item.product_id" :name="`items[${index}][product_id]`" class="form-input flex-1" :class="{ 'is-error': itemsErrors[index]?.product_id || itemsErrors[index]?.stock_exceeded }" @change="onProductChange(index)">
                             <option value="">Pilih Produk</option>
                             @foreach ($products as $product)
-                                <option value="{{ $product->id }}" data-price="{{ $product->rental_price }}" data-deposit-price="{{ $product->deposit_price }}" data-stock="{{ $product->stock_available }}">{{ $product->name }} (Stok: {{ $product->stock_available }}) - Rp {{ number_format($product->rental_price, 0, ',', '.') }}/hari</option>
+                                @php
+                                    $fallbackSizes = $product->size ? [$product->size => ['stock_total' => $product->stock_total, 'stock_available' => $product->stock_available]] : [];
+                                    $sizesData = $product->sizesData ?: $fallbackSizes;
+                                @endphp
+                                <option value="{{ $product->id }}" data-price="{{ $product->rental_price }}" data-deposit-price="{{ $product->deposit_price }}" data-stock="{{ $product->stock_available }}" data-sizes='@json($sizesData)'>{{ $product->name }} (Stok: {{ $product->stock_available }}) - Rp {{ number_format($product->rental_price, 0, ',', '.') }}/hari</option>
                             @endforeach
                         </select>
                         <p x-show="itemsErrors[index]?.product_id" x-transition class="text-xs text-red-400 mt-1">Pilih produk</p>
                         <p x-show="itemsErrors[index]?.stock_exceeded" x-transition class="text-xs text-red-400 mt-1" x-text="itemsErrors[index]?.stock_message || 'Qty melebihi stok tersedia'"></p>
-                        <select x-model="item.product_size" :name="`items[${index}][product_size]`" class="form-input w-32" :class="{ 'is-error': itemsErrors[index]?.product_size }" @change="itemsErrors[index].product_size = false">
-                            <option value="">Ukuran</option>
-                            <option value="XS">XS</option>
-                            <option value="S">S</option>
-                            <option value="M">M</option>
-                            <option value="L">L</option>
-                            <option value="XL">XL</option>
-                            <option value="XXL">XXL</option>
-                            <option value="3XL">3XL</option>
-                            <option value="4XL">4XL</option>
-                        </select>
+                        <div class="flex items-center gap-1">
+                            <select x-model="item.product_size" :name="`items[${index}][product_size]`" class="form-input w-32" :class="{ 'is-error': itemsErrors[index]?.product_size }" @change="onSizeChange(index)">
+                                <option value="">Pilih Ukuran</option>
+                                <template x-for="sz in sizesForItem(index)" :key="sz">
+                                    <option :value="sz" x-text="sz"></option>
+                                </template>
+                            </select>
+                            <span class="text-xs text-slate-500" x-show="item.product_size" x-text="'Stok: ' + getStockForProductAndSize(item.product_id, item.product_size)"></span>
+                        </div>
                         <p x-show="itemsErrors[index]?.product_size" x-transition class="text-xs text-red-400 mt-1">Pilih ukuran</p>
-                        <input type="number" x-model="item.quantity" :name="`items[${index}][quantity]`" value="1" min="1" class="form-input w-24" :class="{ 'is-error': itemsErrors[index]?.quantity || itemsErrors[index]?.stock_exceeded }" @input="onQtyInput(index)">
+                        <input type="number" x-model="item.quantity" :name="`items[${index}][quantity]`" value="1" min="1" class="form-input w-24" :max="item.product_size ? getStockForProductAndSize(item.product_id, item.product_size) : ''" :class="{ 'is-error': itemsErrors[index]?.quantity || itemsErrors[index]?.stock_exceeded }" @input="onQtyInput(index)">
                         <p x-show="itemsErrors[index]?.quantity" x-transition class="text-xs text-red-400 mt-1">Jumlah minimal 1</p>
                         <button type="button" x-show="items.length > 1" @click="removeItem(index)" class="btn-danger px-3 py-2">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -387,6 +389,7 @@
             newCustomerNameError: false,
             newCustomerPhoneError: false,
             itemsErrors: [],
+            productSizesMap: @json($products->mapWithKeys(fn($p) => [$p->id => ($p->sizesData ?: ($p->size ? [$p->size => ['stock_total' => $p->stock_total, 'stock_available' => $p->stock_available]] : []))])->toArray()),
             items: [
                 { product_id: '', product_size: '', quantity: 1 }
             ],
@@ -445,25 +448,54 @@
             return option ? parseInt(option.dataset.stock || '0', 10) : 0;
         },
 
+        getStockForProductAndSize(productId, size) {
+            const sizes = this.productSizesMap[productId];
+            if (!sizes || !sizes[size]) return 0;
+            return parseInt(sizes[size].stock_available, 10);
+        },
+
+        sizesForItem(index) {
+            const productId = this.items[index]?.product_id;
+            if (!productId) return [];
+            const sizes = this.productSizesMap[productId];
+            if (!sizes) return [];
+            const order = ['XS','S','M','L','XL','XXL','3XL','4XL','5XL','6XL','7XL'];
+            return Object.keys(sizes).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+        },
+
         onProductChange(index) {
             const item = this.items[index];
-            const stock = this.getStockForProduct(item.product_id);
-
-            if (item.product_id && stock > 0 && item.quantity > stock) {
-                item.quantity = stock;
-            }
+            item.product_size = '';
 
             if (!this.itemsErrors[index]) {
                 this.itemsErrors[index] = {};
             }
             this.itemsErrors[index].product_id = false;
+            this.itemsErrors[index].product_size = false;
             this.itemsErrors[index].stock_exceeded = false;
             this.itemsErrors[index].stock_message = '';
         },
 
+        onSizeChange(index) {
+            const item = this.items[index];
+            if (item.product_id && item.product_size) {
+                const stock = this.getStockForProductAndSize(item.product_id, item.product_size);
+                if (item.quantity > stock) {
+                    item.quantity = stock;
+                }
+                if (!this.itemsErrors[index]) {
+                    this.itemsErrors[index] = {};
+                }
+                this.itemsErrors[index].stock_exceeded = false;
+                this.itemsErrors[index].stock_message = '';
+            }
+        },
+
         onQtyInput(index) {
             const item = this.items[index];
-            const stock = this.getStockForProduct(item.product_id);
+            const stock = item.product_id && item.product_size
+                ? this.getStockForProductAndSize(item.product_id, item.product_size)
+                : this.getStockForProduct(item.product_id);
 
             if (!this.itemsErrors[index]) {
                 this.itemsErrors[index] = {};
@@ -540,7 +572,14 @@
                     stock_message: ''
                 };
 
-                if (item.product_id) {
+                if (item.product_id && item.product_size) {
+                    const stock = this.getStockForProductAndSize(item.product_id, item.product_size);
+                    if (stock > 0 && item.quantity > stock) {
+                        errors.stock_exceeded = true;
+                        errors.stock_message = `Qty melebihi stok tersedia (maks: ${stock})`;
+                        itemsInvalid = true;
+                    }
+                } else if (item.product_id) {
                     const stock = this.getStockForProduct(item.product_id);
                     if (stock > 0 && item.quantity > stock) {
                         errors.stock_exceeded = true;
@@ -609,54 +648,153 @@
         },
 
         async addCustomer() {
-            this.addingCustomer = true;
-            this.newCustomerNameError = false;
-            this.newCustomerPhoneError = false;
+    this.addingCustomer = true;
+    this.newCustomerNameError = false;
+    this.newCustomerPhoneError = false;
 
-            if (!this.newCustomer.name.trim()) {
-                this.newCustomerNameError = true;
-                this.addingCustomer = false;
-                return;
+    if (!this.newCustomer.name.trim()) {
+        this.newCustomerNameError = true;
+        this.addingCustomer = false;
+        return;
+    }
+
+    if (!this.newCustomer.phone.trim()) {
+        this.newCustomerPhoneError = true;
+        this.addingCustomer = false;
+        return;
+    }
+
+    try {
+        const response = await fetch('{{ route('customers.store') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector(
+                    'meta[name="csrf-token"]'
+                ).content,
+            },
+            body: JSON.stringify(this.newCustomer),
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+
+        if (!contentType.includes('application/json')) {
+            const text = await response.text();
+
+            console.error('Response bukan JSON:');
+            console.error(text);
+
+            throw new Error(
+                'Server mengembalikan response HTML. Cek Console atau laravel.log untuk melihat error sebenarnya.'
+            );
+        }
+
+        const data = await response.json();
+
+        /*
+        |--------------------------------------------------------------------------
+        | CUSTOMER SUDAH TERDAFTAR
+        |--------------------------------------------------------------------------
+        |
+        | Jangan membuat customer baru.
+        | Gunakan customer lama untuk penyewaan ini.
+        |
+        */
+        if (response.status === 409 && data.existing_customer && data.customer) {
+
+            const existingCustomer = data.customer;
+
+            // Pilih customer lama
+            this.selectedCustomer = existingCustomer;
+
+            this.customerSearch =
+                existingCustomer.name + ' - ' + existingCustomer.phone;
+
+            // Pastikan customer ada di daftar Alpine
+            const alreadyExists = this.customers.some(
+                customer => customer.id === existingCustomer.id
+            );
+
+            if (!alreadyExists) {
+                this.customers.push(existingCustomer);
             }
-            if (!this.newCustomer.phone.trim()) {
-                this.newCustomerPhoneError = true;
-                this.addingCustomer = false;
-                return;
+
+            // Tutup modal
+            this.showAddModal = false;
+            this.customerDropdownOpen = false;
+            this.customerError = false;
+
+            // Bersihkan form
+            this.newCustomer = {
+                name: '',
+                phone: '',
+                address: '',
+                notes: ''
+            };
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ERROR LAIN
+        |--------------------------------------------------------------------------
+        */
+        if (!response.ok) {
+            if (data.errors) {
+                const messages = Object.values(data.errors)
+                    .flat()
+                    .join('\n');
+
+                throw new Error(messages);
             }
 
-            try {
-                const response = await fetch('{{ route('customers.store') }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                    },
-                    body: JSON.stringify(this.newCustomer),
-                });
+            throw new Error(
+                data.message || 'Gagal menyimpan pelanggan'
+            );
+        }
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    if (errorData.errors) {
-                        const messages = Object.values(errorData.errors).flat().join('\n');
-                        throw new Error(messages);
-                    }
-                    throw new Error(errorData.message || 'Gagal menyimpan customer');
-                }
+        /*
+        |--------------------------------------------------------------------------
+        | CUSTOMER BARU BERHASIL DIBUAT
+        |--------------------------------------------------------------------------
+        */
+        this.selectedCustomer = data.customer;
 
-                const data = await response.json();
-                this.selectedCustomer = data.customer;
-                this.customerSearch = data.customer.name + ' - ' + data.customer.phone;
-                this.showAddModal = false;
-                this.customerDropdownOpen = false;
+        this.customerSearch =
+            data.customer.name + ' - ' + data.customer.phone;
 
-                this.customers.push(data.customer);
-            } catch (error) {
-                alert(error.message);
-            } finally {
-                this.addingCustomer = false;
-            }
-        },
+        this.showAddModal = false;
+        this.customerDropdownOpen = false;
+        this.customerError = false;
+
+        // Tambahkan ke daftar customer
+        const alreadyExists = this.customers.some(
+            customer => customer.id === data.customer.id
+        );
+
+        if (!alreadyExists) {
+            this.customers.push(data.customer);
+        }
+
+        // Kosongkan form
+        this.newCustomer = {
+            name: '',
+            phone: '',
+            address: '',
+            notes: ''
+        };
+
+    } catch (error) {
+        console.error('Tambah pelanggan error:', error);
+        alert(error.message);
+    } finally {
+        this.addingCustomer = false;
+    }
+},
+
 
         filterPhoneInput(event) {
             const input = event.target;

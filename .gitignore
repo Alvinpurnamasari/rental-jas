@@ -25,3 +25,11 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Local and temporary files
+.kilo/
+backup-rental-*.json
+temp_*
+database/rental_jas_utf8.sql
+worker/node_modules.backup/
+worker/*.backup

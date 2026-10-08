@@ -27,7 +27,7 @@ class CategoryController extends Controller
             'name'       => 'required|string|max:100|unique:categories,name',
             'slug'       => 'required|string|max:100|unique:categories,slug',
             'icon'       => 'nullable|string|max:50',
-            'sort_order' => 'nullable|integer',
+            'sort_order' => 'nullable|integer|unique:categories,sort_order',
             'is_active'  => 'boolean',
         ]);
 
@@ -35,7 +35,7 @@ class CategoryController extends Controller
             'name'       => $request->name,
             'slug'       => $request->slug,
             'icon'       => $request->icon,
-            'sort_order' => $request->sort_order ?? 0,
+            'sort_order' => $request->sort_order,
             'is_active'  => $request->boolean('is_active', true),
         ]);
 
@@ -54,7 +54,7 @@ class CategoryController extends Controller
             'name'       => 'required|string|max:100|unique:categories,name,' . $category->id,
             'slug'       => 'required|string|max:100|unique:categories,slug,' . $category->id,
             'icon'       => 'nullable|string|max:50',
-            'sort_order' => 'nullable|integer',
+            'sort_order' => 'nullable|integer|unique:categories,sort_order,' . $category->id,
             'is_active'  => 'boolean',
         ]);
 
@@ -62,7 +62,7 @@ class CategoryController extends Controller
             'name'       => $request->name,
             'slug'       => $request->slug,
             'icon'       => $request->icon,
-            'sort_order' => $request->sort_order ?? 0,
+            'sort_order' => $request->sort_order,
             'is_active'  => $request->boolean('is_active', true),
         ]);
 
@@ -73,12 +73,12 @@ class CategoryController extends Controller
     public function destroy(Category $category)
     {
         if ($category->products()->count() > 0) {
-            return back()->with('error', 'Kategori tidak bisa dihapus karena masih memiliki produk.');
+            return back()->with('error', 'Kategori tidak dapat dihapus permanen karena masih memiliki produk.');
         }
 
-        $category->delete();
+        $category->forceDelete();
 
         return redirect()->route('categories.index')
-            ->with('success', 'Kategori berhasil dihapus.');
+            ->with('success', 'Kategori berhasil dihapus permanen.');
     }
 }

@@ -7,7 +7,9 @@
 
     <!-- HERO: Greeting + Today summary -->
     <div class="ds-card p-6">
-        <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+        <div class="flex flex-col gap-5">
+
+            {{-- INFORMASI DASHBOARD --}}
             <div class="min-w-0">
                 @php
                     $greet = match(true) {
@@ -17,71 +19,149 @@
                         default => 'Selamat Malam',
                     };
                 @endphp
-
+        
                 <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                     <span class="inline-flex items-center gap-2">
                         <i data-lucide="sparkles" class="h-4 w-4 text-primary"></i>
                         Utama
                     </span>
+        
                     <i data-lucide="chevron-right" class="h-4 w-4 text-slate-300"></i>
+        
                     <span class="text-slate-500">Dashboard</span>
                 </div>
-
+        
                 <h2 class="mt-3 text-2xl font-extrabold tracking-tight text-slate-950">
                     {{ $greet }}, {{ auth()->user()->name }}
                 </h2>
-
+        
                 <p class="mt-1 text-sm font-semibold text-slate-500">
                     {{ $now->translatedFormat('l, d M Y') }} • {{ $now->format('H:i') }} WIB
                 </p>
-
+        
+                {{-- Cabang tetap ditampilkan untuk Admin Cabang dan Sales --}}
                 @if($role === 'admin_toko' || $role === 'sales')
-                    <div class="mt-3 text-sm text-slate-600">
-                        <span class="font-bold text-slate-900">Cabang:</span>
-                        <span class="font-semibold">{{ $branches[0]->name ?? ($data['branch_name'] ?? '-') }}</span>
+                    <div class="mt-3 inline-flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+                        <i data-lucide="building-2" class="h-4 w-4 text-primary"></i>
+        
+                        <span class="font-semibold text-slate-500">
+                            Cabang
+                        </span>
+        
+                        <span class="font-extrabold text-slate-900">
+                            {{ $branches->firstWhere('id', $selectedBranchId ?? null)?->name
+                                ?? ($branches[0]->name ?? ($data['branch_name'] ?? '-')) }}
+                        </span>
                     </div>
                 @endif
             </div>
-
-            <div class="flex flex-wrap items-center gap-3">
-                @if($role === 'super_admin')
-                    <div class="flex items-center gap-2">
-                        <label for="filter-branch" class="text-xs font-semibold text-slate-600">Cabang</label>
-                        <select id="filter-branch" class="px-3.5 py-2 rounded-2xl border border-slate-200 text-sm bg-white ds-transition">
-                            <option value="">Semua Cabang</option>
-                            @foreach($branches ?? [] as $branch)
-                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                            @endforeach
-                        </select>
+        
+        
+            {{-- FILTER DASHBOARD --}}
+            <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+        
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="sliders-horizontal" class="h-4 w-4 text-primary"></i>
+        
+                            <h3 class="text-sm font-extrabold text-slate-900">
+                                Filter Dashboard
+                            </h3>
+                        </div>
+        
+                        <p class="mt-1 text-xs text-slate-500">
+                            Sesuaikan data dashboard berdasarkan cabang, sales, atau periode.
+                        </p>
                     </div>
-                @endif
-
-                @if($role !== 'sales')
-                    <div class="flex items-center gap-2">
-                        <label for="filter-sales" class="text-xs font-semibold text-slate-600">Sales</label>
-                        <select id="filter-sales" class="px-3.5 py-2 rounded-2xl border border-slate-200 text-sm bg-white ds-transition">
-                            <option value="">Semua Sales</option>
-                            @foreach($sales ?? [] as $salesUser)
-                                <option value="{{ $salesUser->id }}">{{ $salesUser->name }}</option>
-                            @endforeach
-                        </select>
+        
+        
+                    <div class="flex flex-wrap items-end gap-3">
+        
+                        {{-- FILTER CABANG: hanya Super Admin --}}
+                        @if($role === 'super_admin')
+                            <div class="flex flex-col gap-1.5">
+                                <label for="filter-branch"
+                                       class="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                    Cabang
+                                </label>
+        
+                                <select id="filter-branch"
+                                        class="min-w-[170px] px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
+                                    <option value="">Semua Cabang</option>
+        
+                                    @foreach($branches ?? [] as $branch)
+                                        <option value="{{ $branch->id }}"
+                                            {{ (string) ($selectedBranchId ?? '') === (string) $branch->id ? 'selected' : '' }}>
+                                            {{ $branch->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+        
+        
+                        {{-- FILTER SALES: Super Admin + Admin Cabang --}}
+                        @if($role === 'super_admin' || $role === 'admin_toko')
+                            <div class="flex flex-col gap-1.5">
+                                <label for="filter-sales"
+                                       class="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                    Sales
+                                </label>
+        
+                                <select id="filter-sales"
+                                        class="min-w-[170px] px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
+                                    <option value="">Semua Sales</option>
+        
+                                    @foreach($sales ?? [] as $salesUser)
+                                        <option value="{{ $salesUser->id }}">
+                                            {{ $salesUser->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+        
+        
+                        {{-- DARI TANGGAL --}}
+                        <div class="flex flex-col gap-1.5">
+                            <label for="filter-date-from"
+                                   class="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                Dari Tanggal
+                            </label>
+        
+                            <input type="date"
+                                   id="filter-date-from"
+                                   class="min-w-[155px] px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
+                        </div>
+        
+        
+                        {{-- SAMPAI TANGGAL --}}
+                        <div class="flex flex-col gap-1.5">
+                            <label for="filter-date-to"
+                                   class="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                Sampai Tanggal
+                            </label>
+        
+                            <input type="date"
+                                   id="filter-date-to"
+                                   class="min-w-[155px] px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
+                        </div>
+        
+        
+                        {{-- RESET --}}
+                        <button type="button"
+                                id="dashboard-filter-reset"
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 ds-transition">
+                            <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+                            Reset
+                        </button>
+        
                     </div>
-                @endif
-
-                <div class="flex items-center gap-2">
-                    <label for="filter-date-from" class="text-xs font-semibold text-slate-600">Dari Tanggal</label>
-                    <input type="date" id="filter-date-from" class="px-3.5 py-2 rounded-2xl border border-slate-200 text-sm bg-white ds-transition">
                 </div>
-                <div class="flex items-center gap-2">
-                    <label for="filter-date-to" class="text-xs font-semibold text-slate-600">Sampai Tanggal</label>
-                    <input type="date" id="filter-date-to" class="px-3.5 py-2 rounded-2xl border border-slate-200 text-sm bg-white ds-transition">
-                </div>
-
-                <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold tracking-wide bg-blue-50 border border-blue-100 text-blue-700">
-                    <span class="h-2 w-2 rounded-full bg-blue-500"></span>
-                    Aktif
-                </span>
             </div>
+        
         </div>
 
         <div class="mt-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -126,7 +206,7 @@
                     </a>
                     <a href="{{ route('rentals.index') }}" class="ds-hover-lift btn btn-secondary">
                         <i data-lucide="shirt" class="h-4 w-4 text-primary"></i>
-                        <span class="font-bold">Laundry</span>
+                        <span class="font-bold">Penyewaan</span>
                     </a>
                     <a href="{{ route('broadcast-campaigns.index') }}" class="ds-hover-lift btn btn-secondary">
                         <i data-lucide="send" class="h-4 w-4 text-primary"></i>
@@ -163,6 +243,37 @@
             </div>
         </div>
     </div>
+
+    @if($role === 'admin_toko')
+        <section id="sales-performance" class="space-y-4">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Performa Sales</h2>
+                    <p id="performance-selection" class="text-sm text-slate-500">Pilih Sales untuk melihat performanya.</p>
+                </div>
+            </div>
+            <p id="performance-empty" class="py-5 text-sm text-slate-500">Pilih cabang dan Sales untuk menampilkan performa.</p>
+            <div id="performance-content" class="hidden space-y-4">
+                <div class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+                    <div class="border-l-2 border-blue-500 pl-3"><p class="text-xs text-slate-500">Transaksi</p><p id="performance-transactions" class="text-lg font-bold text-slate-900">0</p></div>
+                    <div class="border-l-2 border-green-500 pl-3"><p class="text-xs text-slate-500">Selesai</p><p id="performance-completed" class="text-lg font-bold text-slate-900">0</p></div>
+                    <div class="border-l-2 border-amber-500 pl-3"><p class="text-xs text-slate-500">Aktif</p><p id="performance-active" class="text-lg font-bold text-slate-900">0</p></div>
+                    <div class="border-l-2 border-cyan-500 pl-3"><p class="text-xs text-slate-500">Pelanggan</p><p id="performance-customers" class="text-lg font-bold text-slate-900">0</p></div>
+                    <div class="border-l-2 border-emerald-500 pl-3"><p class="text-xs text-slate-500">Pendapatan</p><p id="performance-revenue" class="text-lg font-bold text-slate-900">Rp 0</p></div>
+                    <div class="border-l-2 border-rose-500 pl-3"><p class="text-xs text-slate-500">Pengembalian</p><p id="performance-returns" class="text-lg font-bold text-slate-900">0</p></div>
+                    <div class="border-l-2 border-violet-500 pl-3"><p class="text-xs text-slate-500">Poin (akumulasi)</p><p id="performance-points" class="text-lg font-bold text-slate-900">0</p></div>
+                </div>
+                <div class="overflow-x-auto border-t border-slate-200">
+                    <table class="w-full min-w-[1050px] text-left text-sm">
+                        <thead><tr class="border-b border-slate-200 text-xs uppercase text-slate-500">
+                            <th class="py-3 pr-4">Tanggal</th><th class="py-3 pr-4">Invoice</th><th class="py-3 pr-4">Customer</th><th class="py-3 pr-4">Cabang</th><th class="py-3 pr-4">Nilai</th><th class="py-3 pr-4">Status</th><th class="py-3 pr-4">Petugas Pembayaran</th><th class="py-3">Petugas Pengembalian</th>
+                        </tr></thead>
+                        <tbody id="performance-rows" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    @endif
 
     <!-- Quick Stats Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -265,16 +376,7 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div class="ds-card p-6">
-            <div class="flex items-center gap-2 mb-4">
-                    <span class="h-10 w-10 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100">
-                        <i data-lucide="sparkles" class="h-5 w-5 text-primary"></i>
-                    </span>
-                <h3 class="text-sm font-extrabold text-slate-900">Aktivitas Terbaru</h3>
-            </div>
-            <div id="widgetActivity" class="text-xs space-y-1"></div>
-        </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 
         <div class="ds-card p-6">
             <div class="flex items-center gap-2 mb-4">
@@ -785,31 +887,6 @@
     function updateWidgets(widgets) {
         const w = isObject(widgets) ? widgets : {};
 
-        renderList('widgetActivity', w.activity_terbaru, (it) => {
-            const rawDesc = (it?.description ?? '').toLowerCase();
-            const rawType = (it?.type ?? '').toLowerCase();
-            const token = rawType || rawDesc;
-
-            let icon = 'sparkles';
-            if (token.includes('payment')) icon = 'wallet';
-            else if (token.includes('return') || token.includes('kembal')) icon = 'reply';
-            else if (token.includes('broadcast')) icon = 'send';
-            else if (token.includes('rental') || token.includes('sewa') || token.includes('invoice')) icon = 'shirt';
-            else if (token.includes('user') || token.includes('aktivitas')) icon = 'users';
-
-            return `
-                <div class="flex items-start gap-3 py-3 border-b last:border-b-0 border-slate-100">
-                    <div class="h-9 w-9 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center">
-                        <i data-lucide="${icon}" class="h-4 w-4 text-blue-600"></i>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-xs font-extrabold text-slate-900 leading-relaxed">${it?.description ?? ''}</p>
-                        <p class="text-[11px] font-semibold text-slate-500 mt-0.5">${it?.time ?? ''}</p>
-                    </div>
-                </div>
-            `;
-        });
-
         renderList('widgetTransactions', w.transaksi_terbaru, (it) => {
             return `
                 <div class="py-2 border-b last:border-b-0 border-slate-100">
@@ -862,12 +939,54 @@
                     ${arr.map((it) => {
                         const inv = it?.invoice ?? it?.invoice_number ?? '';
                         const due = it?.return_due_date ?? '';
+
+                        const dueDate = parseDue(due);
+
+                        let overdueDays = 0;
+
+                        if (dueDate && title === 'Terlambat') {
+                            const dueOnly = new Date(
+                                dueDate.getFullYear(),
+                                dueDate.getMonth(),
+                                dueDate.getDate()
+                            );
+
+                            overdueDays = Math.floor(
+                                (today.getTime() - dueOnly.getTime()) / (1000 * 60 * 60 * 24)
+                            );
+                        }
+
+                        const formattedDue = dueDate
+                            ? dueDate.toLocaleDateString('id-ID', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                            })
+                            : due;
+
                         return `
                             <div class="flex items-start gap-2 py-2 border-b last:border-b-0 border-slate-100">
                                 <i data-lucide="clock" class="h-4 w-4 ${style.icon} mt-0.5"></i>
+
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-[12px] font-extrabold text-slate-900 truncate">${inv}</p>
-                                    <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Jatuh Tempo: <span class="text-slate-900">${due}</span></p>
+                                    <p class="text-[12px] font-extrabold text-slate-900 truncate">
+                                        ${inv}
+                                    </p>
+
+                                    <p class="text-[11px] font-semibold text-slate-500 mt-0.5">
+                                        Jatuh Tempo:
+                                        <span class="text-slate-900">${formattedDue}</span>
+                                    </p>
+
+                                    ${
+                                        overdueDays > 0
+                                            ? `
+                                                <p class="text-[11px] font-extrabold text-red-600 mt-1">
+                                                    Terlambat ${overdueDays} hari
+                                                </p>
+                                            `
+                                            : ''
+                                    }
                                 </div>
                             </div>
                         `;
@@ -904,19 +1023,43 @@
                 `;
             }
         }
-
-        // Almost empty: keep lightweight mapping
+        // Almost empty / habis
         renderList('widgetAlmostEmpty', w.produk_hampir_habis, (p) => {
             const stock = Number(p?.stock_available ?? 0);
             const pct = Math.min(100, (stock / 3) * 100);
+            const isEmpty = stock === 0;
+
             return `
                 <div class="py-2 border-b last:border-b-0 border-slate-100">
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-[12px] font-extrabold text-slate-900 truncate">${p?.name ?? ''}</p>
-                        <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 border border-amber-100 text-amber-700 font-extrabold">${stock}</span>
+                        <div class="flex items-center gap-2 min-w-0">
+                            <p class="text-[12px] font-extrabold text-slate-900 truncate">
+                                ${p?.name ?? ''}
+                            </p>
+
+                            <span class="text-[11px] px-2 py-0.5 rounded-full font-extrabold
+                                ${isEmpty
+                                    ? 'bg-red-50 border border-red-100 text-red-600'
+                                    : 'bg-amber-50 border border-amber-100 text-amber-700'
+                                }">
+                                ${isEmpty ? 'Habis' : 'Menipis'}
+                            </span>
+                        </div>
+
+                        <span class="text-[11px] px-2 py-0.5 rounded-full font-extrabold
+                            ${isEmpty
+                                ? 'bg-red-50 border border-red-100 text-red-600'
+                                : 'bg-amber-50 border border-amber-100 text-amber-700'
+                            }">
+                            ${stock}
+                        </span>
                     </div>
+
                     <div class="mt-2 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-amber-400 rounded-full" style="width:${pct}%;"></div>
+                        <div
+                            class="h-full rounded-full ${isEmpty ? 'bg-red-400' : 'bg-amber-400'}"
+                            style="width:${pct}%;">
+                        </div>
                     </div>
                 </div>
             `;
@@ -929,6 +1072,7 @@
             stats: data.stats ?? {},
             charts: data.charts ?? {},
             widgets: data.widgets ?? {},
+            performance: data.performance ?? null,
             meta: data.meta ?? {},
         };
     }
@@ -946,6 +1090,37 @@
         if (salesFilter && salesFilter.value) params.append('sales_user_id', salesFilter.value);
         if (dateFromFilter && dateFromFilter.value) params.append('date_from', dateFromFilter.value);
         if (dateToFilter && dateToFilter.value) params.append('date_to', dateToFilter.value);
+        const resetFilterButton = document.getElementById('dashboard-filter-reset');
+
+        if (resetFilterButton) {
+            resetFilterButton.addEventListener('click', () => {
+                if (branchFilter) {
+                    // Super Admin bisa kembali ke Semua Cabang.
+                    // Admin Cabang tetap menggunakan cabang yang sudah ditentukan.
+                    const hasAllBranchesOption = Array.from(branchFilter.options)
+                        .some(option => option.value === '');
+
+                    branchFilter.value = hasAllBranchesOption
+                        ? ''
+                        : (branchFilter.options[0]?.value ?? '');
+                }
+
+                if (salesFilter) {
+                    salesFilter.value = '';
+                }
+
+                if (dateFromFilter) {
+                    dateFromFilter.value = '';
+                }
+
+                if (dateToFilter) {
+                    dateToFilter.value = '';
+                }
+
+                filterSalesDropdownByBranch();
+                tick();
+            });
+        }
 
         const url = '{{ route('dashboard.data') }}' + (params.toString() ? '?' + params.toString() : '');
 
@@ -990,7 +1165,6 @@
         );
 
         const widgetsAny = (
-            (Array.isArray(w.activity_terbaru) && w.activity_terbaru.length > 0) ||
             (Array.isArray(w.transaksi_terbaru) && w.transaksi_terbaru.length > 0) ||
             (Array.isArray(w.reminder_pengembalian) && w.reminder_pengembalian.length > 0) ||
             (Array.isArray(w.produk_hampir_habis) && w.produk_hampir_habis.length > 0)
@@ -1007,6 +1181,7 @@
 
         hideErrorState();
         updateStats(stats);
+        updatePerformance(normalized.performance);
 
         initChartsIfNeeded();
         updateCharts(charts);
@@ -1022,12 +1197,94 @@
 
     function handleError() { showErrorState(); }
 
+    function updatePerformance(performance) {
+        const content = document.getElementById('performance-content');
+        if (!content) return;
+
+        const empty = document.getElementById('performance-empty');
+        const selection = document.getElementById('performance-selection');
+        if (!performance) {
+            content.classList.add('hidden');
+            empty.classList.remove('hidden');
+            selection.textContent = 'Pilih Sales untuk melihat performanya.';
+            return;
+        }
+
+        empty.classList.add('hidden');
+        content.classList.remove('hidden');
+        selection.textContent = `Sales: ${performance.sales} | Cabang: ${performance.branch ?? '-'}`;
+
+        const values = {
+            'performance-transactions': performance.transactions,
+            'performance-completed': performance.completed,
+            'performance-active': performance.active,
+            'performance-customers': performance.customers,
+            'performance-revenue': formatCurrencyIDR(performance.revenue),
+            'performance-returns': performance.returns,
+            'performance-points': performance.points,
+        };
+        Object.entries(values).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = value ?? 0;
+        });
+
+        const body = document.getElementById('performance-rows');
+        if (!body) return;
+        body.replaceChildren();
+
+        const labels = {
+            waiting: 'Menunggu',
+            active: 'Aktif',
+            overdue: 'Terlambat',
+            returned: 'Selesai',
+            cancelled: 'Dibatalkan',
+        };
+        (performance.rows ?? []).forEach(item => {
+            const row = document.createElement('tr');
+            const cells = [
+                item.date ?? '-',
+                item.invoice ?? '-',
+                item.customer ?? '-',
+                item.branch ?? '-',
+                formatCurrencyIDR(item.amount),
+                labels[item.status] ?? item.status ?? '-',
+                item.payment_operator ?? '-',
+                item.return_operator ?? '-',
+            ];
+            cells.forEach((value, index) => {
+                const cell = document.createElement('td');
+                cell.className = index === cells.length - 1 ? 'py-3' : 'py-3 pr-4';
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+            body.appendChild(row);
+        });
+
+        if ((performance.rows ?? []).length === 0) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 8;
+            cell.className = 'py-5 text-center text-slate-500';
+            cell.textContent = 'Tidak ada transaksi pada filter ini.';
+            row.appendChild(cell);
+            body.appendChild(row);
+        }
+    }
+
     function filterSalesDropdownByBranch() {
         const branchFilter = document.getElementById('filter-branch');
         const salesFilter = document.getElementById('filter-sales');
-        if (!branchFilter || !salesFilter) return;
+        if (!branchFilter) return;
 
         const selectedBranch = branchFilter.value;
+        const branchLabel = document.getElementById('dashboard-branch-label');
+        if (branchLabel) {
+            branchLabel.textContent = selectedBranch
+                ? branchFilter.selectedOptions[0]?.textContent ?? '-'
+                : (branchFilter.options[0]?.textContent ?? 'Semua Cabang');
+        }
+
+        if (!salesFilter) return;
         const firstOption = salesFilter.querySelector('option[value=""]');
         if (!firstOption) return;
 
@@ -1068,11 +1325,15 @@
 
         const branchFilter = document.getElementById('filter-branch');
         const salesFilter = document.getElementById('filter-sales');
+        const dateFromFilter = document.getElementById('filter-date-from');
+        const dateToFilter = document.getElementById('filter-date-to');
         if (branchFilter) branchFilter.addEventListener('change', () => {
             filterSalesDropdownByBranch();
             tick();
         });
         if (salesFilter) salesFilter.addEventListener('change', tick);
+        if (dateFromFilter) dateFromFilter.addEventListener('change', tick);
+        if (dateToFilter) dateToFilter.addEventListener('change', tick);
 
         filterSalesDropdownByBranch();
         tick();
