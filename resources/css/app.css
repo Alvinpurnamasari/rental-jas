@@ -1052,3 +1052,6 @@ textarea.form-input { min-height: 96px !important; resize: vertical; }
 .ds-chart-wrap {
     position: relative;
 }
+[x-cloak] {
+    display: none !important;
+}

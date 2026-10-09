@@ -230,6 +230,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
 
         Route::get('/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
         Route::get('/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
+
+        Route::get('/lost-items', [ReportController::class, 'lostItems']) ->name('reports.lost-items');
+        
     });
 });
 
@@ -255,14 +258,16 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
 });
 
 // ─── POINTS ──────────────────────────────────────────────
-Route::middleware(['auth'])->prefix('points')->name('points.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\PointsController::class, 'index'])->name('index');
-});
-
 Route::middleware('auth')->group(function () {
     Route::get('/qr-scan-history', [QrScanHistoryController::class, 'index'])
         ->name('qr-scan-history.index');
 
     Route::post('/qr-scan-history', [QrScanHistoryController::class, 'store'])
         ->name('qr-scan-history.store');
+
+    Route::delete('/qr-scan-history/{history}', [QrScanHistoryController::class, 'destroy'])
+        ->name('qr-scan-history.destroy');
+
+    Route::delete('/qr-scan-history', [QrScanHistoryController::class, 'destroyAll'])
+        ->name('qr-scan-history.destroy-all');
 });

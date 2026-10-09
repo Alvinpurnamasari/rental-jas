@@ -77,9 +77,13 @@
                 @endauth
 
                 <select class="form-input sm:w-40" id="bl-filter" onchange="applyCustomerFilters()">
-                    <option value="">Daftar Blokir: Semua</option>
-                    <option value="normal" {{ request('bl_status') === 'normal' ? 'selected' : '' }}>Normal</option>
-                    <option value="blacklisted" {{ request('bl_status') === 'blacklisted' ? 'selected' : '' }}>Daftar Blokir</option>
+                    <option value="">Semua</option>
+                    <option value="normal" {{ request('bl_status') === 'normal' ? 'selected' : '' }}>
+                        Normal
+                    </option>
+                    <option value="blacklisted" {{ request('bl_status') === 'blacklisted' ? 'selected' : '' }}>
+                        Diblokir
+                    </option>
                 </select>
             </div>
         </div>
@@ -135,7 +139,7 @@
                                 @if($isDeactivated)
                                 <span class="badge badge-gold">Dinonaktifkan</span>
                                 @elseif($customer->is_blacklisted)
-                                <span class="badge badge-red">Blacklist</span>
+                                <span class="badge badge-red">Blokir</span>
                                 @else
                                 <span class="badge badge-green">Aktif</span>
                                 @endif
@@ -157,7 +161,7 @@
                                     @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                                         <form method="POST" action="{{ route('customers.restore', $customer->id) }}" class="inline">
                                             @csrf
-                                            <button type="submit" class="p-2 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-xl transition-all" title="Pulihkan" aria-label="Pulihkan {{ $customer->name }}">
+                                            <button type="submit" class="p-2 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-xl transition-all" title="Aktifkan Kembali" aria-label="Aktifkan Kembali {{ $customer->name }}">
                                                 <i data-lucide="rotate-ccw" class="w-4.5 h-4.5"></i>
                                             </button>
                                         </form>
@@ -184,16 +188,20 @@
                                     <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', (str_starts_with($customer->phone, '0') ? '62'.substr($customer->phone,1) : $customer->phone)) }}" target="_blank" class="p-2 text-stone-400 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all" title="WhatsApp" aria-label="WhatsApp {{ $customer->name }}">
                                         <i data-lucide="message-square" class="w-4.5 h-4.5"></i>
                                     </a>
+                                    
+
                                     @auth
                                     @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
-                                    <form method="POST" action="{{ route('customers.destroy', $customer) }}" id="deleteCustomer_{{ $customer->id }}" class="hidden">
+                                    <form method="POST" action="{{ route('customers.destroy', $customer) }}" id="deactivateCustomer_{{ $customer->id }}" class="hidden">
                                         @csrf @method('DELETE')
                                     </form>
-                                    <button type="button" onclick="confirmDelete('deleteCustomer_{{ $customer->id }}', 'customer {{ $customer->name }}')"
-                                            class="p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                                            title="Hapus"
-                                            aria-label="Hapus {{ $customer->name }}">
-                                        <i data-lucide="trash-2" class="w-4.5 h-4.5"></i>
+
+                                    <button type="button"
+                                            onclick="confirmDelete('deactivateCustomer_{{ $customer->id }}', 'nonaktifkan pelanggan {{ $customer->name }}')"
+                                            class="p-2 text-stone-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
+                                            title="Nonaktifkan"
+                                            aria-label="Nonaktifkan {{ $customer->name }}">
+                                        <i data-lucide="user-x" class="w-4.5 h-4.5"></i>
                                     </button>
                                     @endif
                                     @endauth

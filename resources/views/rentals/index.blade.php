@@ -37,7 +37,6 @@
                 <select name="status" class="form-input sm:w-44">
                     <option value="">Semua Status</option>
                     <option value="waiting" {{ request('status') === 'waiting' ? 'selected' : '' }}>Menunggu</option>
-                    <option value="processing" {{ request('status') === 'processing' ? 'selected' : '' }}>Diproses</option>
                     <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Aktif</option>
                     <option value="overdue" {{ request('status') === 'overdue' ? 'selected' : '' }}>Terlambat</option>
                     <option value="returned" {{ request('status') === 'returned' ? 'selected' : '' }}>Selesai</option>
@@ -112,15 +111,13 @@
                             @php
                                 $statusClasses = [
                                     'waiting' => 'badge-gold',
-                                    'processing' => 'badge-blue',
                                     'active' => 'badge-green',
                                     'overdue' => 'badge-red',
-                                    'returned' => 'badge-green',
+                                    'returned' => 'badge-blue',
                                     'cancelled' => 'badge-gray',
                                 ];
                                 $statusLabels = [
                                     'waiting' => 'Menunggu',
-                                    'processing' => 'Diproses',
                                     'active' => 'Aktif',
                                     'overdue' => 'Terlambat',
                                     'returned' => 'Selesai',
@@ -128,9 +125,24 @@
                                 ];
                             @endphp
                             <div class="flex justify-center">
-                                <span class="badge {{ $statusClasses[$rental->rental_status] ?? 'badge-gray' }}">
-                                    {{ $statusLabels[$rental->rental_status] ?? $rental->rental_status }}
-                                </span>
+                                @php
+                                    $displayStatus = $rental->rental_status;
+
+                                    // Jika belum dikembalikan dan sudah melewati deadline
+                                    if (
+                                        in_array($rental->rental_status, ['active', 'overdue']) &&
+                                        $rental->return_due_date &&
+                                        $rental->return_due_date->isPast()
+                                    ) {
+                                        $displayStatus = 'overdue';
+                                    }
+                                @endphp
+
+                                <div class="flex justify-center">
+                                    <span class="badge {{ $statusClasses[$displayStatus] ?? 'badge-gray' }}">
+                                        {{ $statusLabels[$displayStatus] ?? $displayStatus }}
+                                    </span>
+                                </div>
                             </div>
                         </td>
                         <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-right">

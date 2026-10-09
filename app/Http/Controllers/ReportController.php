@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\RentalItem;
 
 class ReportController extends Controller
 {
@@ -1433,6 +1434,72 @@ class ReportController extends Controller
         return Response::stream($callback, 200, $headers);
     }
 
+    
+public function lostItems(Request $request)
+{
+    $branchId = $this->resolvedBranchId($request);
+    $shared = $this->sharedViewData($request);
+
+    $dateFrom = $request->input('date_from');
+    $dateTo = $request->input('date_to');
+    $search = $request->input('search');
+
+    $query = RentalItem::with([
+        'rental.customer',
+        'rental.branch',
+        'product',
+    ])->where('return_condition', 'hilang');
+
+    if ($branchId !== null) {
+        $query->whereHas('rental', function ($q) use ($branchId) {
+            $q->where('branch_id', $branchId);
+        });
+    }
+
+    if ($dateFrom) {
+        $query->whereDate('returned_at', '>=', $dateFrom);
+    }
+
+    if ($dateTo) {
+        $query->whereDate('returned_at', '<=', $dateTo);
+    }
+
+    if ($search) {
+        $query->whereHas('rental', function ($q) use ($search) {
+            $q->where('invoice_number', 'like', "%{$search}%")
+                ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                    $customerQuery->where('name', 'like', "%{$search}%");
+                });
+        });
+    }
+
+    $totalItemsLost = (clone $query)->sum('quantity');
+    $totalFine = (clone $query)->sum('damage_fee');
+    $totalRecords = (clone $query)->count();
+
+    $lostItems = $query
+        ->latest('returned_at')
+        ->paginate(25)
+        ->withQueryString();
+
+    $data = array_merge($shared, compact(
+        'lostItems',
+        'totalItemsLost',
+        'totalFine',
+        'totalRecords',
+        'dateFrom',
+        'dateTo',
+        'search'
+    ));
+
+    if ($request->ajax()) {
+        return view('reports.partials.lost-items-content', $data)->render();
+    }
+
+    return view('reports.lost-items', $data);
+}
+
+
     // =========================================================================
     // EXPORT PENGEMBALIAN (PDF)
     // =========================================================================
@@ -1445,8 +1512,11 @@ class ReportController extends Controller
         $dateFrom = $request->input('date_from');
         $dateTo   = $request->input('date_to');
 
-        $query = Rental::with(['customer', 'branch', 'createdBy', 'items'])
-            ->whereIn('rental_status', ['returned', 'completed']);
+        $query = RentalItem::with([
+            'rental.customer',
+            'rental.branch',
+            'product',
+        ])->where('return_condition', 'hilang');
 
         if ($branchId !== null) {
             $query->where('branch_id', $branchId);
@@ -2116,4 +2186,5 @@ class ReportController extends Controller
 
         return $pdf->download($filename);
     }
+
 }

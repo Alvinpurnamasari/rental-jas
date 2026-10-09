@@ -47,7 +47,9 @@
         ],
         'Log' => [
             ['label' => 'Log Keseluruhan', 'route' => 'reports.activity-log', 'icon' => 'scroll-text', 'active' => 'reports.activity-log.*', 'roles' => ['super_admin','admin_toko']],
+            ['label' => 'Laporan Barang Hilang', 'route' => 'reports.lost-items', 'icon' => 'package-x', 'active' => 'reports.lost-items', 'roles' => ['super_admin','admin_toko']],
         ],
+
     ];
 
     $canSee = fn(array $roles) => $user && in_array($user->role, $roles, true);

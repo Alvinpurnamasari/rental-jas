@@ -44,7 +44,7 @@ class CustomerExport extends DefaultValueBinder implements FromQuery, WithHeadin
         return [
             $customer->name,
             (string) $customer->phone,
-            $customer->is_blacklisted ? 'Blacklist' : 'Aktif',
+            $customer->is_blacklisted ? 'Diblokir' : 'Aktif',
             optional($customer->branch)->name,
             $customer->created_at?->format('d M Y'),
         ];

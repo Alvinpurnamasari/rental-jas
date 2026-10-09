@@ -33,7 +33,7 @@ function loadScanHistory() {
       scanHistory = [];
   }
 }
-async function renderScanHistory() {
+async function renderScanHistory(showAll = false) {
   const container = document.getElementById('scan-history-container');
 
   if (!container) {
@@ -42,7 +42,11 @@ async function renderScanHistory() {
   }
 
   try {
-      const response = await fetch('/qr-scan-history', {
+      const url = showAll
+          ? '/qr-scan-history?all=1'
+          : '/qr-scan-history';
+
+      const response = await fetch(url, {
           method: 'GET',
           headers: {
               'Accept': 'application/json'
@@ -66,82 +70,150 @@ async function renderScanHistory() {
           return;
       }
 
-      container.innerHTML = histories.map((item) => {
+      // Kalau bukan mode "Lihat Semua", hanya tampilkan 5
+      const visibleHistories = showAll
+          ? histories
+          : histories.slice(0, 5);
 
-          // Ambil ID rental dari URL QR
-          let rentalId = null;
+      container.innerHTML = `
+          <div class="space-y-3">
 
-          try {
-              const url = new URL(item.content);
-              const match = url.pathname.match(/\/rentals\/(\d+)/);
+              ${visibleHistories.map((item) => {
 
-              if (match) {
-                  rentalId = match[1];
-              }
-          } catch (error) {
-              console.warn('QR bukan URL rental:', item.content);
-          }
+                  // Ambil ID rental dari URL QR
+                  let rentalId = null;
 
-          const title = rentalId
-              ? `Rental #${rentalId}`
-              : 'QR Code';
+                  try {
+                      const url = new URL(item.content);
+                      const match = url.pathname.match(/\/rentals\/(\d+)/);
 
-          const timestamp = item.scanned_at
-              ? new Date(item.scanned_at).toLocaleString('id-ID')
-              : '';
+                      if (match) {
+                          rentalId = match[1];
+                      }
+                  } catch (error) {
+                      console.warn(
+                          'QR bukan URL rental:',
+                          item.content
+                      );
+                  }
 
-          return `
-              <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 hover:bg-white transition">
+                  const title = rentalId
+                      ? `Rental #${rentalId}`
+                      : 'QR Code';
 
-                  <div class="flex items-start justify-between gap-3">
+                  const timestamp = item.scanned_at
+                      ? new Date(item.scanned_at)
+                          .toLocaleString('id-ID')
+                      : '';
 
-                      <div class="min-w-0 flex items-start gap-3">
+                  return `
+                      <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 hover:bg-white transition">
 
-                          <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-                              <svg class="w-5 h-5 text-blue-600"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24">
-                                  <path stroke-linecap="round"
-                                      stroke-linejoin="round"
-                                      stroke-width="2"
-                                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
-                                  </path>
-                              </svg>
-                          </div>
+                          <div class="flex items-start justify-between gap-3">
 
-                          <div class="min-w-0">
+                              <div class="min-w-0 flex items-start gap-3">
 
-                              <p class="text-sm font-semibold text-slate-700">
-                                  ${title}
-                              </p>
+                                  <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                                      <svg class="w-5 h-5 text-blue-600"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24">
+                                          <path stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                              stroke-width="2"
+                                              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                                          </path>
+                                      </svg>
+                                  </div>
 
-                              <p class="text-xs text-slate-500 mt-1">
-                                  Penyewaan
-                              </p>
+                                  <div class="min-w-0">
 
-                              <a
-                                  href="${item.content}"
-                                  class="text-xs text-blue-600 hover:text-blue-800 hover:underline mt-1 inline-block"
-                              >
-                                  Lihat detail rental
-                              </a>
+                                      <p class="text-sm font-semibold text-slate-700">
+                                          ${title}
+                                      </p>
+
+                                      <p class="text-xs text-slate-500 mt-1">
+                                          Penyewaan
+                                      </p>
+
+                                      <a
+                                          href="${item.content}"
+                                          class="text-xs text-blue-600 hover:text-blue-800 hover:underline mt-1 inline-block"
+                                      >
+                                          Lihat detail rental
+                                      </a>
+
+                                  </div>
+
+                              </div>
+
+                              <div class="flex flex-col items-end gap-2">
+
+                                  <span class="text-xs text-slate-400 whitespace-nowrap">
+                                      ${timestamp}
+                                  </span>
+
+                                  <button
+                                      type="button"
+                                      onclick="deleteScanHistory(${item.id})"
+                                      class="text-xs text-red-500 hover:text-red-700"
+                                  >
+                                      Hapus
+                                  </button>
+
+                              </div>
 
                           </div>
 
                       </div>
+                  `;
+              }).join('')}
 
-                      <span class="text-xs text-slate-400 whitespace-nowrap">
-                          ${timestamp}
-                      </span>
+              <div class="flex items-center justify-between pt-2">
 
-                  </div>
+                  ${
+                      !showAll && histories.length > 5
+                      ? `
+                          <button
+                              type="button"
+                              onclick="renderScanHistory(true)"
+                              class="text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                              Lihat Semua Riwayat
+                          </button>
+                      `
+                      : showAll && histories.length > 5
+                      ? `
+                          <button
+                              type="button"
+                              onclick="renderScanHistory(false)"
+                              class="text-sm font-medium text-slate-500 hover:text-slate-700"
+                          >
+                              Sembunyikan
+                          </button>
+                      `
+                      : `
+                          <div></div>
+                      `
+                  }
+
+                  <button
+                      type="button"
+                      onclick="deleteAllScanHistory()"
+                      class="text-sm font-medium text-red-500 hover:text-red-700"
+                  >
+                      Hapus Semua
+                  </button>
 
               </div>
-          `;
-      }).join('');
 
-      console.log('QR scan history loaded from database:', histories);
+          </div>
+      `;
+
+      console.log(
+          'QR scan history loaded from database:',
+          histories
+      );
 
   } catch (err) {
       logWarn('Could not load scan history:', err);
@@ -156,6 +228,67 @@ async function renderScanHistory() {
   }
 }
 
+async function deleteScanHistory(id) {
+  if (!confirm('Hapus riwayat scan ini?')) {
+      return;
+  }
+
+  try {
+      const csrfToken = document.querySelector(
+          'meta[name="csrf-token"]'
+      )?.getAttribute('content');
+
+      const response = await fetch(`/qr-scan-history/${id}`, {
+          method: 'DELETE',
+          headers: {
+              'Accept': 'application/json',
+              'X-CSRF-TOKEN': csrfToken
+          }
+      });
+
+      if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      await renderScanHistory();
+
+  } catch (error) {
+      console.error('Gagal menghapus riwayat:', error);
+      alert('Gagal menghapus riwayat scan.');
+  }
+}
+async function deleteAllScanHistory() {
+  if (!confirm('Yakin ingin menghapus semua riwayat scan?')) {
+      return;
+  }
+
+  try {
+      const csrfToken = document.querySelector(
+          'meta[name="csrf-token"]'
+      )?.getAttribute('content');
+
+      const response = await fetch('/qr-scan-history', {
+          method: 'DELETE',
+          headers: {
+              'Accept': 'application/json',
+              'X-CSRF-TOKEN': csrfToken
+          }
+      });
+
+      if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      await renderScanHistory();
+
+  } catch (error) {
+      console.error('Gagal menghapus semua riwayat:', error);
+      alert('Gagal menghapus semua riwayat scan.');
+  }
+}
+window.renderScanHistory = renderScanHistory;
+window.deleteScanHistory = deleteScanHistory;
+window.deleteAllScanHistory = deleteAllScanHistory;
 const LS_DEVICE_KEY = 'qr_scanner_selected_device_id';
 
 // ════════════════════════════════════════════════════════════════
@@ -1153,7 +1286,7 @@ async function handleQRCode(qrContent) {
     }
 
     // Beri waktu agar efek hijau terlihat
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     // Setelah efek hijau terlihat, baru matikan kamera
     if (isScanning) {
@@ -1166,7 +1299,7 @@ async function handleQRCode(qrContent) {
     // Redirect setelah efek selesai
     setTimeout(() => {
       redirectToQR(qrContent);
-    }, 500);
+    }, 1500);
 
   } catch (err) {
     logError('Error handling QR code:', err);
@@ -1368,6 +1501,8 @@ async function initPage() {
   renderScanHistory();
   loadLastScanResult();
 
+  
+
   const qrReader = document.getElementById('qr-reader');
   if (!qrReader) {
     log('SKIP: Not on scan page');
@@ -1404,11 +1539,46 @@ async function initPage() {
   }
 
   // Populate camera dropdown on page load
+  // Populate camera dropdown on page load
   await getAvailableCameras();
+
+  // ─── AUTO START CAMERA PREFERENCE ─────────────────────
+  const autoStartCheckbox = document.getElementById('auto-start-checkbox');
+
+  if (autoStartCheckbox) {
+    // Ambil pengaturan yang tersimpan
+    const savedAutoStart = localStorage.getItem('qr-auto-start-camera');
+
+    // Pulihkan kondisi checkbox
+    autoStartCheckbox.checked = savedAutoStart === 'true';
+
+    // Simpan perubahan checkbox
+    autoStartCheckbox.addEventListener('change', async () => {
+      localStorage.setItem(
+        'qr-auto-start-camera',
+        autoStartCheckbox.checked ? 'true' : 'false'
+      );
+
+      if (autoStartCheckbox.checked && !isScanning) {
+        await startCamera();
+      }
+
+      if (!autoStartCheckbox.checked && isScanning) {
+        await stopCamera();
+      }
+    });
+
+    // Jika sebelumnya dicentang, otomatis mulai kamera
+    if (autoStartCheckbox.checked && !isScanning) {
+      log('✓ Auto-start camera enabled');
+      await startCamera();
+    }
+  }
 
   log('✓ Scanner initialized and ready');
   log('════════════════════════════════════════════');
 }
+
 
 // Auto-initialize on page load
 if (document.readyState === 'loading') {

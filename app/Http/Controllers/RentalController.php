@@ -269,7 +269,13 @@ class RentalController extends Controller
         }
 
         if ($request->has("status") && $request->status) {
-            $query->where("rental_status", $request->status);
+
+            if ($request->status === 'overdue') {
+                $query->whereIn('rental_status', ['active', 'overdue'])
+                      ->whereDate('return_due_date', '<', now()->toDateString());
+            } else {
+                $query->where('rental_status', $request->status);
+            }
         }
 
         if ($request->has("search") && $request->search) {

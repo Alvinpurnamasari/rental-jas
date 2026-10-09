@@ -47,7 +47,7 @@
 <a href="{{ route('rentals.create', ['customer_id' => $customer->id]) }}" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i> Buat Penyewaan Baru</a>
 <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', str_starts_with($customer->phone, '0') ? '62'.substr($customer->phone,1) : $customer->phone) }}" target="_blank" class="btn-secondary" style="color:#25D366;border-color:#25D366"><i data-lucide="message-circle" class="w-4 h-4"></i> WhatsApp</a>
 @if(auth()->user()->isSuperAdmin())
-<button @click="showBlacklist = true" class="btn-secondary {{ $customer->is_blacklisted ? 'border-green-400 text-green-600' : 'border-red-300 text-red-500' }}"><i data-lucide="{{ $customer->is_blacklisted ? 'user-check' : 'user-x' }}" class="w-4 h-4"></i> {{ $customer->is_blacklisted ? 'Hapus Blacklist' : 'Blacklist' }}</button>
+<button @click="showBlacklist = true" class="btn-secondary {{ $customer->is_blacklisted ? 'border-green-400 text-green-600' : 'border-red-300 text-red-500' }}"><i data-lucide="{{ $customer->is_blacklisted ? 'user-check' : 'user-x' }}" class="w-4 h-4"></i> {{ $customer->is_blacklisted ? 'Buka Blokir' : 'Blokir' }}</button>
 @endif
 @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
 <button type="button" onclick="confirmDelete('deleteCustomerForm','customer {{ $customer->name }}')" class="btn-secondary text-red-500 hover:bg-red-50"><i data-lucide="trash-2" class="w-4 h-4"></i> Hapus</button>
@@ -61,7 +61,7 @@
 
 <div class="flex items-center gap-2 flex-wrap">
 @if($isDeactivated) <span class="badge bg-amber-100 text-amber-700 border border-amber-200">Dinonaktifkan</span>
-@elseif($customer->is_blacklisted) <span class="badge badge-red">Blacklist</span>
+@elseif($customer->is_blacklisted) <span class="badge badge-red">Blokir</span>
 @else <span class="badge badge-green">Aktif</span>
 @endif
 </div>
@@ -145,18 +145,18 @@
 
 <div x-show="showBlacklist" x-cloak class="modal-overlay" @click.self="showBlacklist = false">
 <div class="modal-box">
-<h3 class="font-semibold text-base mb-4" style="color:var(--text-dark)">{{ $customer->is_blacklisted ? 'Hapus dari Daftar Blokir' : 'Daftar Blokir Pelanggan' }}</h3>
+<h3 class="font-semibold text-base mb-4" style="color:var(--text-dark)">{{ $customer->is_blacklisted ? 'Buka Blokir Pelanggan' : 'Blokir Pelanggan' }}</h3>
 <form method="POST" action="{{ route('customers.blacklist', $customer) }}">
 @csrf @method('PATCH')
 @if(!$customer->is_blacklisted)
 <div class="mb-4">
-<label class="block text-sm font-medium mb-1.5" style="color:var(--text-dark)">Alasan Daftar Blokir</label>
-<textarea name="reason" rows="3" class="form-input" placeholder="Tulis alasan daftar blokir..." required></textarea>
+<label class="block text-sm font-medium mb-1.5" style="color:var(--text-dark)">Alasan Blokir Pelanggan</label>
+<textarea name="reason" rows="3" class="form-input" placeholder="Tulis alasan blokir pelanggan..." required></textarea>
 </div>
 @endif
 <div class="flex gap-3">
 <button type="button" @click="showBlacklist = false" class="btn-secondary flex-1 justify-center">Batal</button>
-<button type="submit" class="btn-primary flex-1 justify-center {{ $customer->is_blacklisted ? '' : 'btn-blacklist' }}"><i data-lucide="{{ $customer->is_blacklisted ? 'user-check' : 'user-x' }}" class="w-4 h-4"></i> {{ $customer->is_blacklisted ? 'Hapus Daftar Blokir' : 'Daftar Blokir Pelanggan' }}</button>
+<button type="submit" class="btn-primary flex-1 justify-center {{ $customer->is_blacklisted ? '' : 'btn-blacklist' }}"><i data-lucide="{{ $customer->is_blacklisted ? 'user-check' : 'user-x' }}" class="w-4 h-4"></i> {{ $customer->is_blacklisted ? 'Buka Blokir Pelanggan' : 'Blokir Pelanggan' }}</button>
 </div>
 </form>
 </div>
