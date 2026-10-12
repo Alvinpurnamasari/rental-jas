@@ -6,14 +6,14 @@
 <div class="space-y-6">
 
     {{-- HEADER --}}
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-            <h1 class="font-playfair text-2xl font-bold" style="color: var(--text-dark)">Kelola Cabang</h1>
+            <h1 class="font-playfair text-xl sm:text-2xl font-bold break-words" style="color: var(--text-dark)">Kelola Cabang</h1>
             <p class="text-sm mt-0.5" style="color: var(--text-soft)">Manajemen cabang toko JasRental</p>
         </div>
 @auth
         @if(auth()->user()->isSuperAdmin())
-        <a href="{{ route('branches.create') }}" class="btn-primary">
+        <a href="{{ route('branches.create') }}" class="btn-primary w-full sm:w-auto justify-center">
             <i data-lucide="plus" class="w-4 h-4"></i> Tambah Cabang
         </a>
         @endif
@@ -157,9 +157,9 @@
         {{-- Mobile ds-cards --}}
         <div class="md:hidden space-y-3">
             @foreach($branches as $branch)
-            <div class="ds-card border rounded-xl p-4 space-y-3">
+            <div class="ds-card min-w-0 border rounded-xl p-4 space-y-3 overflow-hidden">
                 {{-- Top: name + code + status --}}
-                <div class="flex items-center gap-3">
+                <div class="flex min-w-0 items-center gap-3">
                     <div class="flex-1 min-w-0">
                         <p class="font-semibold text-sm truncate" style="color:var(--text-dark)">{{ $branch->name }}</p>
                         <span class="text-xs font-mono px-2 py-0.5 rounded-md" style="background:var(--secondary); color:var(--primary)">
@@ -174,14 +174,14 @@
                 </div>
 
                 {{-- Info rows --}}
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style="color:var(--text-soft)">
+                <div class="flex min-w-0 flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-x-4 gap-y-1 text-xs break-words" style="color:var(--text-soft)">
                     <span>
                         <strong class="font-medium" style="color:var(--text-dark)">{{ $branch->city ?? '-' }}</strong>
                         @if($branch->province)
                             <span>, {{ $branch->province }}</span>
                         @endif
                     </span>
-                    <span>
+                    <span class="min-w-0 max-w-full break-all">
                         @if($branch->phone)
                             <strong class="font-medium" style="color:var(--text-dark)">{{ $branch->phone }}</strong>
                         @elseif($branch->email)
@@ -195,16 +195,16 @@
                 </div>
 
                 {{-- Actions --}}
-                <div class="flex items-center gap-2 pt-2 border-t" style="border-color:var(--border)">
+                <div class="grid grid-cols-1 sm:flex sm:items-center gap-2 pt-2 border-t" style="border-color:var(--border)">
                     <a href="{{ route('branches.show', $branch) }}"
-                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px]"
+                       class="w-full sm:flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px]"
                        style="background:var(--secondary); color:var(--text-dark)">
                         <i data-lucide="eye" class="w-4 h-4"></i> Detail
                     </a>
                     @auth
                         @if(auth()->user()->isSuperAdmin())
                         <a href="{{ route('branches.edit', $branch) }}"
-                           class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px]"
+                           class="w-full sm:flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px]"
                            style="background:var(--secondary); color:var(--text-dark)">
                             <i data-lucide="pencil" class="w-4 h-4"></i> Edit
                         </a>
@@ -213,7 +213,7 @@
                         </form>
                         <button type="button"
                                 onclick="confirmDelete('deleteBranchMobile_{{ $branch->id }}', 'cabang {{ $branch->name }}')"
-                                class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] text-red-600 hover:bg-red-50">
+                                class="w-full sm:flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] text-red-600 hover:bg-red-50">
                             <i data-lucide="trash-2" class="w-4 h-4"></i> Hapus
                         </button>
                         @endif

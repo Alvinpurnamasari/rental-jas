@@ -4,9 +4,30 @@
 @section('page-title', 'Broadcast Campaign')
 @section('subtitle', 'Kelola campaign broadcast WhatsApp')
 
+@push('styles')
+<style>
+@media (max-width: 639px) {
+  .broadcast-page-header { display:flex; flex-direction:column; align-items:stretch; gap:1rem; }
+  .broadcast-page-header > a { width:100%; justify-content:center; }
+  .broadcast-table-wrap { overflow:visible; }
+  .broadcast-table, .broadcast-table tbody { display:block; width:100%; }
+  .broadcast-table thead { display:none; }
+  .broadcast-table tbody tr { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.75rem 1rem; padding:1rem; border-bottom:1px solid #e2e8f0; }
+  .broadcast-table tbody tr:last-child { border-bottom:0; }
+  .broadcast-table tbody td { display:block; min-width:0; padding:0 !important; text-align:left !important; overflow-wrap:anywhere; }
+  .broadcast-table tbody td::before { content:attr(data-label); display:block; margin-bottom:.35rem; color:#64748b; font-size:.68rem; font-weight:700; line-height:1.2; text-transform:uppercase; letter-spacing:.035em; }
+  .broadcast-table tbody td:first-child { grid-column:1 / -1; }
+  .broadcast-table tbody td:last-child { grid-column:1 / -1; display:flex; align-items:center; gap:.5rem; padding-top:.65rem !important; border-top:1px solid #f1f5f9; }
+  .broadcast-table tbody td:last-child::before { margin:0 auto 0 0; }
+  .broadcast-table tbody td .flex.items-center.gap-2 { min-width:0; }
+  .broadcast-table tbody td .flex-1 { min-width:2rem; }
+}
+</style>
+@endpush
+
 @section('content')
-<div class="space-y-6">
-    <div class="flex items-center justify-between">
+<div class="space-y-6 broadcast-campaign-page">
+    <div class="flex items-center justify-between broadcast-page-header">
         <div>
             <h2 class="text-lg font-extrabold text-slate-950">Daftar Campaign</h2>
             <p class="mt-1 text-sm text-slate-500">Kelola dan pantau semua campaign broadcast WhatsApp.</p>
@@ -35,11 +56,11 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse($campaigns as $campaign)
                         <tr class="hover:bg-slate-50/60" data-campaign-id="{{ $campaign->id }}">
-                            <td class="px-5 py-3">
+                            <td class="px-5 py-3" data-label="Nama Campaign">
                                 <div class="font-semibold text-slate-900">{{ $campaign->name }}</div>
                                 <div class="text-xs text-slate-500">{{ $campaign->provider }}</div>
                             </td>
-                            <td class="px-5 py-3">
+                            <td class="px-5 py-3" data-label="Channel">
                                 <div class="flex flex-wrap gap-1">
                                     @foreach($campaign->channels ?? ['whatsapp'] as $channel)
                                         @php
@@ -53,11 +74,11 @@
                                     @endforeach
                                 </div>
                             </td>
-                            <td class="px-5 py-3">
+                            <td class="px-5 py-3" data-label="Tipe Penerima">
                                 <span class="badge">{{ ucfirst($campaign->recipient_type) }}</span>
                             </td>
-                            <td class="px-5 py-3 text-slate-600">{{ ucfirst(str_replace('_', ' ', $campaign->target_type)) }}</td>
-                            <td class="px-5 py-3">
+                            <td class="px-5 py-3 text-slate-600" data-label="Target">{{ ucfirst(str_replace('_', ' ', $campaign->target_type)) }}</td>
+                            <td class="px-5 py-3" data-label="Status">
                                 @php
                                     $statusColors = [
                                         'draft' => 'bg-slate-100 text-slate-700',
@@ -72,7 +93,7 @@
                                 @endphp
                                 <span class="badge {{ $color }}">{{ ucfirst($campaign->status) }}</span>
                             </td>
-                            <td class="px-5 py-3">
+                            <td class="px-5 py-3" data-label="Progress">
                                 <div class="flex items-center gap-2">
                                     <div class="flex-1 h-2 rounded-full bg-slate-100">
                                         <div class="h-2 rounded-full bg-blue-600"
@@ -84,10 +105,10 @@
                                     </span>
                                 </div>
                             </td>
-                            <td class="px-5 py-3 text-slate-500">
+                            <td class="px-5 py-3 text-slate-500" data-label="Tanggal">
                                 {{ optional($campaign->scheduled_at)->format('d M Y H:i') ?? optional($campaign->created_at)->format('d M Y H:i') }}
                             </td>
-                            <td class="px-5 py-3 text-right">
+                            <td class="px-5 py-3 text-right" data-label="Aksi">
                                 <a href="{{ route('broadcast-campaigns.show', $campaign) }}" class="btn-ghost px-2 py-1 text-xs">
                                     Detail
                                 </a>

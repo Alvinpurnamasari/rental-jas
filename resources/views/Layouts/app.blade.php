@@ -280,7 +280,7 @@
                 </a>
                 <a href="{{ route('notifications.index') }}" class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 bg-transparent text-slate-500 hover:bg-blue-50 border border-slate-200 relative">
                     <i data-lucide="bell" class="h-5 w-5"></i>
-                    <span class="text-[10px] font-bold">Notifs</span>
+                    <span class="text-[10px] font-bold">Notif</span>
                     @if($unreadNotif > 0)
                         <span class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
                             {{ $unreadNotif > 9 ? '9+' : $unreadNotif }}

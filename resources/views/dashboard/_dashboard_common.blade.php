@@ -3,10 +3,10 @@
     $now = \Carbon\Carbon::now('Asia/Jakarta');
 @endphp
 
-<div id="dashboard-root" data-role="{{ $role ?? '' }}" class="space-y-6">
+<div id="dashboard-root" data-role="{{ $role ?? '' }}" class="w-full min-w-0 max-w-full space-y-4 sm:space-y-6 lg:space-y-6">
 
     <!-- HERO: Greeting + Today summary -->
-    <div class="ds-card p-6">
+    <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-6">
         <div class="flex flex-col gap-5">
 
             {{-- INFORMASI DASHBOARD --}}
@@ -58,7 +58,7 @@
         
         
             {{-- FILTER DASHBOARD --}}
-            <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div class="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:p-4 lg:p-4">
         
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         
@@ -77,7 +77,7 @@
                     </div>
         
         
-                    <div class="flex flex-wrap items-end gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3 min-w-0">
         
                         {{-- FILTER CABANG: hanya Super Admin --}}
                         @if($role === 'super_admin')
@@ -88,7 +88,7 @@
                                 </label>
         
                                 <select id="filter-branch"
-                                        class="min-w-[170px] px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
+                                        class="w-full min-w-0 lg:min-w-[170px] lg:w-auto px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
                                     <option value="">Semua Cabang</option>
         
                                     @foreach($branches ?? [] as $branch)
@@ -111,7 +111,7 @@
                                 </label>
         
                                 <select id="filter-sales"
-                                        class="min-w-[170px] px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
+                                        class="w-full min-w-0 lg:min-w-[170px] lg:w-auto px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
                                     <option value="">Semua Sales</option>
         
                                     @foreach($sales ?? [] as $salesUser)
@@ -133,7 +133,7 @@
         
                             <input type="date"
                                    id="filter-date-from"
-                                   class="min-w-[155px] px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
+                                   class="w-full min-w-0 lg:min-w-[155px] lg:w-auto px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
                         </div>
         
         
@@ -146,7 +146,7 @@
         
                             <input type="date"
                                    id="filter-date-to"
-                                   class="min-w-[155px] px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
+                                   class="w-full min-w-0 lg:min-w-[155px] lg:w-auto px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white ds-transition">
                         </div>
         
         
@@ -164,78 +164,78 @@
         
         </div>
 
-        <div class="mt-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="mt-4 sm:mt-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 min-w-0">
             <div class="hidden" id="dashboard-subtitle">Memperbarui data secara real-time…</div>
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap items-stretch gap-2 min-w-0">
                 @if($role === 'super_admin')
-                    <a href="{{ route('branches.index') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('branches.index') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="building-2" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Kelola Cabang</span>
                     </a>
-                    <a href="{{ route('users.index') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('users.index') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="users" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Kelola Admin</span>
                     </a>
-                    <a href="{{ route('broadcast-campaigns.index') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('broadcast-campaigns.index') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="send" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Broadcast</span>
                     </a>
-                    <a href="{{ route('reports.revenue') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('reports.revenue') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="trending-up" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Laporan</span>
                     </a>
-                    <a href="{{ route('rentals.scan') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('rentals.scan') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="scan-line" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Scan QR</span>
                     </a>
                 @endif
 
                 @if($role === 'admin_toko')
-                    <a href="{{ route('customers.index') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('customers.index') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="user-plus" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Tambah Pelanggan</span>
                     </a>
-                    <a href="{{ route('rentals.create') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('rentals.create') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="plus-circle" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Buat Sewa</span>
                     </a>
-                    <a href="{{ route('rentals.index', ['status' => 'active']) }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('rentals.index', ['status' => 'active']) }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="reply" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Pengembalian</span>
                     </a>
-                    <a href="{{ route('rentals.index') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('rentals.index') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="shirt" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Penyewaan</span>
                     </a>
-                    <a href="{{ route('broadcast-campaigns.index') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('broadcast-campaigns.index') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="send" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Broadcast</span>
                     </a>
-                    <a href="{{ route('rentals.scan') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('rentals.scan') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="scan-line" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Scan QR</span>
                     </a>
                 @endif
 
                 @if($role === 'sales')
-                    <a href="{{ route('rentals.create') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('rentals.create') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="plus-circle" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Buat Sewa</span>
                     </a>
-                    <a href="{{ route('customers.index') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('customers.index') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="user" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Pelanggan Saya</span>
                     </a>
-                    <a href="{{ route('rentals.scan') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('rentals.scan') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="scan-line" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Scan QR</span>
                     </a>
-                    <a href="{{ route('rentals.index', ['status' => 'overdue']) }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('rentals.index', ['status' => 'overdue']) }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="reply" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Pengembalian</span>
                     </a>
-                    <a href="{{ route('reports.transactions') }}" class="ds-hover-lift btn btn-secondary">
+                    <a href="{{ route('reports.transactions') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
                         <i data-lucide="receipt" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Transaksi Saya</span>
                     </a>
@@ -245,7 +245,7 @@
     </div>
 
     @if($role === 'admin_toko')
-        <section id="sales-performance" class="space-y-4">
+        <section id="sales-performance" class="min-w-0 space-y-4">
             <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900">Performa Sales</h2>
@@ -254,7 +254,7 @@
             </div>
             <p id="performance-empty" class="py-5 text-sm text-slate-500">Pilih cabang dan Sales untuk menampilkan performa.</p>
             <div id="performance-content" class="hidden space-y-4">
-                <div class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+                <div class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7 min-w-0">
                     <div class="border-l-2 border-blue-500 pl-3"><p class="text-xs text-slate-500">Transaksi</p><p id="performance-transactions" class="text-lg font-bold text-slate-900">0</p></div>
                     <div class="border-l-2 border-green-500 pl-3"><p class="text-xs text-slate-500">Selesai</p><p id="performance-completed" class="text-lg font-bold text-slate-900">0</p></div>
                     <div class="border-l-2 border-amber-500 pl-3"><p class="text-xs text-slate-500">Aktif</p><p id="performance-active" class="text-lg font-bold text-slate-900">0</p></div>
@@ -263,7 +263,7 @@
                     <div class="border-l-2 border-rose-500 pl-3"><p class="text-xs text-slate-500">Pengembalian</p><p id="performance-returns" class="text-lg font-bold text-slate-900">0</p></div>
                     <div class="border-l-2 border-violet-500 pl-3"><p class="text-xs text-slate-500">Poin (akumulasi)</p><p id="performance-points" class="text-lg font-bold text-slate-900">0</p></div>
                 </div>
-                <div class="overflow-x-auto border-t border-slate-200">
+                <div class="min-w-0 overflow-x-auto overscroll-x-contain border-t border-slate-200">
                     <table class="w-full min-w-[1050px] text-left text-sm">
                         <thead><tr class="border-b border-slate-200 text-xs uppercase text-slate-500">
                             <th class="py-3 pr-4">Tanggal</th><th class="py-3 pr-4">Invoice</th><th class="py-3 pr-4">Customer</th><th class="py-3 pr-4">Cabang</th><th class="py-3 pr-4">Nilai</th><th class="py-3 pr-4">Status</th><th class="py-3 pr-4">Petugas Pembayaran</th><th class="py-3">Petugas Pengembalian</th>
@@ -276,7 +276,7 @@
     @endif
 
     <!-- Quick Stats Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-4">
         @php
             $cards = [
                 ['label'=>'Pelanggan','icon'=>'users','stat'=>'total_customers','sub'=>'Aktif terdaftar','subKey'=>'customer_aktif','accent'=>'blue'],
@@ -288,7 +288,7 @@
         @endphp
 
         @foreach($cards as $c)
-            <div class="ds-card p-5 ds-transition ds-hover-lift group relative overflow-hidden">
+            <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-5 ds-transition ds-hover-lift group relative overflow-hidden">
                 <div class="absolute inset-0 opacity-80" style="background:
                     radial-gradient(circle at 20% 0%, rgba(37,99,235,.12), transparent 45%),
                     radial-gradient(circle at 90% 10%, rgba(245,158,11,.10), transparent 40%);"></div>
@@ -304,7 +304,7 @@
                     </div>
 
                     <div class="mt-4">
-                        <div class="text-3xl font-extrabold tracking-tight text-slate-950" data-stat="{{ $c['stat'] }}">—</div>
+                        <div class="text-2xl sm:text-3xl lg:text-3xl font-extrabold tracking-tight text-slate-950 break-words" data-stat="{{ $c['stat'] }}">—</div>
                         <div class="mt-1 text-sm font-semibold text-slate-500">
                             @if($c['subKey'])
                                 <span class="text-slate-900" data-stat="{{ $c['subKey'] }}">—</span>
@@ -325,8 +325,8 @@
     </div>
 
     <!-- Charts + Widgets -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="ds-card p-6 lg:col-span-2">
+    <div class="grid grid-cols-1 min-w-0 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-4">
+        <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-6 lg:col-span-2">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h3 class="text-base font-extrabold text-slate-900">Grafik Rental <span id="chart-rental-label">(30 Hari)</span></h3>
@@ -334,51 +334,51 @@
                 </div>
                 <span class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1 rounded-full">Live</span>
             </div>
-            <div class="relative w-full h-[220px]">
+            <div class="relative w-full min-w-0 h-[200px] sm:h-[220px] lg:h-[220px]">
                 <canvas id="chartRentals"></canvas>
             </div>
         </div>
 
-        <div class="ds-card p-6">
+        <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-6">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h3 class="text-base font-extrabold text-slate-900">Pemasukan <span id="chart-revenue-label">(30 Hari)</span></h3>
                     <p class="text-xs font-semibold text-slate-500">Omzet & performa</p>
                 </div>
             </div>
-            <div class="relative w-full h-[220px]">
+            <div class="relative w-full min-w-0 h-[200px] sm:h-[220px] lg:h-[220px]">
                 <canvas id="chartRevenue"></canvas>
             </div>
         </div>
 
-        <div class="ds-card p-6 lg:col-span-2">
+        <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-6 lg:col-span-2">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h3 class="text-base font-extrabold text-slate-900">Status Penyewaan</h3>
                     <p class="text-xs font-semibold text-slate-500">Menunggu, berjalan, terlambat</p>
                 </div>
             </div>
-            <div class="relative w-full h-[220px]">
+            <div class="relative w-full min-w-0 h-[200px] sm:h-[220px] lg:h-[220px]">
                 <canvas id="chartStatus"></canvas>
             </div>
         </div>
 
-        <div class="ds-card p-6">
+        <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-6">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h3 class="text-base font-extrabold text-slate-900">Model Terlaris</h3>
                     <p class="text-xs font-semibold text-slate-500">Top produk</p>
                 </div>
             </div>
-            <div class="relative w-full h-[220px]">
+            <div class="relative w-full min-w-0 h-[200px] sm:h-[220px] lg:h-[220px]">
                 <canvas id="chartTopProducts"></canvas>
             </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 min-w-0 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-4">
 
-        <div class="ds-card p-6">
+        <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-6">
             <div class="flex items-center gap-2 mb-4">
                 <span class="h-10 w-10 rounded-2xl flex items-center justify-center bg-amber-50 border border-amber-100">
                     <i data-lucide="receipt" class="h-5 w-5 text-amber-600"></i>
@@ -388,7 +388,7 @@
             <div id="widgetTransactions" class="text-xs space-y-1"></div>
         </div>
 
-        <div class="ds-card p-6">
+        <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-6">
             <div class="flex items-center gap-2 mb-4">
                 <span class="h-10 w-10 rounded-2xl flex items-center justify-center bg-emerald-50 border border-emerald-100">
                     <i data-lucide="bell" class="h-5 w-5 text-emerald-600"></i>
@@ -398,7 +398,7 @@
             <div id="widgetReminders" class="text-xs space-y-1"></div>
         </div>
 
-        <div class="ds-card p-6">
+        <div class="ds-card min-w-0 p-3 sm:p-5 lg:p-6">
             <div class="flex items-center gap-2 mb-4">
                 <span class="h-10 w-10 rounded-2xl flex items-center justify-center bg-red-50 border border-red-100">
                     <i data-lucide="alert-triangle" class="h-5 w-5 text-red-600"></i>

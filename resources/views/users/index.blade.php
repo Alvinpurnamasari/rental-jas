@@ -4,7 +4,7 @@
 @section('subtitle','Manajemen akun & hak akses — Super Admin Only')
 
 @section('content')
-<div class="space-y-5">
+<div class="space-y-5 pb-28 md:pb-0">
 
     {{-- Info Role --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -230,11 +230,12 @@
                                 <form method="POST" action="{{ route('users.destroy', $user) }}" id="deleteUserIndex_{{ $user->id }}" class="hidden">
                                     @csrf @method('DELETE')
                                 </form>
-                                <button type="button" onclick="confirmDelete('deleteUserIndex_{{ $user->id }}', 'pengguna {{ $user->name }}')"
+                                <button type="button"
+                                        onclick="confirmDelete('deleteUserIndex_{{ $user->id }}', 'pengguna {{ $user->name }}')"
                                         class="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                                        title="Nonaktifkan/Hapus"
-                                        style="color:#C0392B">
-                                    <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+                                        title="Hapus Pengguna"
+                                        style="color:#DC2626">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                                 </button>
                                 @endif
                             </div>
@@ -298,7 +299,7 @@
                 </div>
 
                 {{-- Actions --}}
-                <div class="flex items-center gap-2 pt-2 border-t" style="border-color:var(--border)">
+                <div class="grid grid-cols-2 gap-2 pt-3 border-t" style="border-color:var(--border)">
                     <a href="{{ route('users.edit', $user) }}"
                        class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px]"
                        style="background:var(--secondary); color:var(--text-dark)">
@@ -320,7 +321,7 @@
                     </form>
                     <button type="button"
                             onclick="confirmDelete('deleteUserMobile_{{ $user->id }}', 'pengguna {{ $user->name }}')"
-                            class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] text-red-600 hover:bg-red-50"
+                            class="col-span-2 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] text-red-600 hover:bg-red-50"
                             title="Hapus">
                         <i data-lucide="trash-2" class="w-4 h-4"></i> Hapus
                     </button>
@@ -338,6 +339,33 @@
     </div>
 </div>
 @endsection
+
 @push('scripts')
-<script>lucide.createIcons();</script>
+<script>
+    lucide.createIcons();
+
+    function confirmAction(formId, title, message, confirmText, confirmColor) {
+        Swal.fire({
+            title: title,
+            text: message,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: confirmColor,
+            cancelButtonColor: '#64748b',
+            confirmButtonText: confirmText,
+            cancelButtonText: 'Batal',
+            reverseButtons: true,
+            focusCancel: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const form = document.getElementById(formId);
+
+                if (form) {
+                    form.submit();
+                }
+            }
+        });
+    }
+</script>
 @endpush
+

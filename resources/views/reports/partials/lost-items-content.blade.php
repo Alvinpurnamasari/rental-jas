@@ -94,9 +94,9 @@
 
 
     <div class="card shadow-sm border-0">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
+        <div class="w-full min-w-0 p-4">
+            <div class="w-full overflow-x-auto">
+                <table class="w-full min-w-[1100px] table-auto text-left">
                     <thead>
                         <tr>
                             <th>No.</th>
@@ -126,7 +126,7 @@
                                     {{ $item->rental->invoice_number ?? '-' }}
                                 </td>
                                 <td>
-                                    {{ $item->rental?->customer?->name ?? '-' }}
+                                    {{ $item->rental?->customer?->name ?? 'Pelanggan tidak ditemukan' }}
                                 </td>
                                 <td>
                                     {{ $item->rental->branch->name ?? '-' }}

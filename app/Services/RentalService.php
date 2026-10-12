@@ -8,6 +8,8 @@ use App\Models\Product;
 use App\Models\Payment;
 use App\Models\Guarantee;
 use App\Models\ActivityLog;
+use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -480,6 +482,12 @@ class RentalService
 
             // Log activity
             $this->logActivity('create_rental', $rental, [], $this->rentalSnapshot($rental));
+            $this->notifyBranchAndSuperAdmins(
+                $rental,
+                'rental_new',
+                'Penyewaan baru',
+                'Penyewaan ' . $rental->invoice_number . ' berhasil dibuat.'
+            );
 
             return $rental->fresh(['items', 'customer', 'guarantees']);
         });
@@ -548,6 +556,12 @@ class RentalService
             $newValues = $this->rentalSnapshot($rental);
 
             $this->logActivity('process_payment', $rental, $oldValues, $newValues);
+            $this->notifyBranchAndSuperAdmins(
+                $rental,
+                'payment',
+                'Pembayaran diterima',
+                'Pembayaran sebesar Rp' . number_format($amount, 0, ',', '.') . ' untuk invoice ' . $rental->invoice_number . ' berhasil dicatat.'
+            );
 
             $this->addSalesPoints($rental, 'serah', 3);
 
@@ -633,6 +647,12 @@ class RentalService
             $newValues = $this->rentalSnapshot($rental);
 
             $this->logActivity('return_rental', $rental, $oldValues, $newValues);
+            $this->notifyBranchAndSuperAdmins(
+                $rental,
+                'rental_return',
+                'Pengembalian barang',
+                'Pengembalian untuk invoice ' . $rental->invoice_number . ' telah diproses.'
+            );
 
             $this->addSalesPoints($rental, 'kembali', 5);
 
@@ -663,9 +683,83 @@ class RentalService
 
     public function updateOverdueRentals(): int
     {
-        return Rental::where('rental_status', Rental::STATUS_ACTIVE)
-            ->where('return_due_date', '<', now()->toDateString())
-            ->update(['rental_status' => Rental::STATUS_OVERDUE]);
+        // Ambil penyewaan aktif yang sudah lewat tenggat DAN penyewaan yang
+        // statusnya sudah overdue, agar data lama juga mendapat notifikasi.
+        $rentals = Rental::query()
+            ->whereIn('rental_status', [Rental::STATUS_ACTIVE, Rental::STATUS_OVERDUE])
+            ->whereDate('return_due_date', '<', now()->toDateString())
+            ->get();
+
+        foreach ($rentals as $rental) {
+            if ($rental->rental_status !== Rental::STATUS_OVERDUE) {
+                $rental->update(['rental_status' => Rental::STATUS_OVERDUE]);
+            }
+
+            // Idempotent: setiap pengguna hanya mendapat satu notifikasi
+            // keterlambatan untuk invoice yang sama.
+            $this->notifyBranchAndSuperAdmins(
+                $rental,
+                'rental_late',
+                'Penyewaan terlambat',
+                'Penyewaan dengan invoice ' . $rental->invoice_number . ' telah melewati tanggal pengembalian.',
+                true
+            );
+        }
+
+        return $rentals->count();
+    }
+
+    /**
+     * Kirim notifikasi transaksi kepada Admin Toko/Sales cabang terkait
+     * dan seluruh Super Admin.
+     */
+    protected function notifyBranchAndSuperAdmins(
+        Rental $rental,
+        string $type,
+        string $title,
+        string $message,
+        bool $preventDuplicate = false
+    ): void {
+        $branchId = (int) $rental->branch_id;
+
+        $recipients = User::query()
+            ->where('is_active', true)
+            ->where(function ($query) use ($branchId) {
+                $query->where('role', User::ROLE_SUPER_ADMIN)
+                    ->orWhere(function ($branchQuery) use ($branchId) {
+                        $branchQuery
+                            ->whereIn('role', [User::ROLE_ADMIN_TOKO, User::ROLE_SALES])
+                            ->where('branch_id', $branchId);
+                    });
+            })
+            ->get(['id']);
+
+        foreach ($recipients as $recipient) {
+            if ($preventDuplicate && Notification::query()
+                ->where('notifiable_type', 'user')
+                ->where('notifiable_id', $recipient->id)
+                ->where('type', $type)
+                ->where('meta->rental_id', $rental->id)
+                ->exists()) {
+                continue;
+            }
+
+            Notification::create([
+                'notifiable_type' => 'user',
+                'notifiable_id'   => $recipient->id,
+                'branch_id'       => $branchId,
+                'type'            => $type,
+                'title'           => $title,
+                'message'         => $message,
+                'action_url'      => '/rentals/' . $rental->id,
+                'meta'            => [
+                    'rental_id'     => $rental->id,
+                    'invoice_number'=> $rental->invoice_number,
+                    'branch_id'     => $branchId,
+                ],
+                'is_read'         => false,
+            ]);
+        }
     }
 
     protected function rentalSnapshot(Rental $rental): array

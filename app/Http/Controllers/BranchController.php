@@ -114,6 +114,26 @@ class BranchController extends Controller
             ->with('success', 'Cabang berhasil diperbarui.');
     }
 
+    
+    public function toggleStatus(Branch $branch)
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->isSuperAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $branch->is_active = !$branch->is_active;
+        $branch->save();
+
+        $status = $branch->is_active ? 'diaktifkan kembali' : 'dinonaktifkan';
+
+        return redirect()
+            ->route('branches.show', $branch)
+            ->with('success', "Cabang {$branch->name} berhasil {$status}.");
+    }
+
+
     public function destroy(Branch $branch)
     {
         $user = Auth::user();

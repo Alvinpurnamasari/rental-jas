@@ -4,7 +4,51 @@
 @section('page-title', 'Buat Penyewaan')
 
 @section('content')
-<div class="max-w-4xl mx-auto space-y-5">
+<div class="rental-create-page w-full max-w-4xl mx-auto space-y-5 min-w-0">
+    <style>
+        .rental-create-page, .rental-create-page * { box-sizing: border-box; }
+        .rental-create-page .card { min-width: 0; }
+        .rental-create-page .form-input { width: 100%; max-width: 100%; min-width: 0; }
+        .rental-create-page input, .rental-create-page select, .rental-create-page textarea { min-width: 0; }
+        .rental-create-page .input-group-phone { width: 100%; min-width: 0; }
+        .rental-create-page #products-container > * { min-width: 0; }
+        .rental-create-page #products-container select[name$="[product_id]"] { flex: 1 1 100%; width: 100%; }
+        .rental-create-page #products-container select[name$="[product_size]"] { width: 100%; min-width: 0; }
+        .rental-create-page #products-container input[name$="[quantity]"] { width: 5rem; flex: 0 0 5rem; }
+        @media (max-width: 639px) {
+            .rental-create-page { width: 100%; max-width: 100%; }
+            .rental-create-page .card { padding: 1rem; border-radius: 1.1rem; }
+            .rental-create-page .grid { min-width: 0; }
+            .rental-create-page .grid > div { min-width: 0; }
+            .rental-create-page .flex.items-center.justify-between { gap: .65rem; }
+            /* Tombol aksi berada di dalam card terakhir, bukan anak langsung form. */
+            .rental-create-page form .flex.items-center.justify-between {
+                flex-direction: column-reverse;
+                align-items: stretch;
+                width: 100%;
+                min-width: 0;
+            }
+            .rental-create-page form .flex.items-center.justify-between > a,
+            .rental-create-page form .flex.items-center.justify-between > button {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+                justify-content: center;
+                flex: 0 1 auto;
+                white-space: normal;
+            }
+            .rental-create-page form .flex.items-center.justify-between > button {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .rental-create-page .input-group-phone__input { width: 100%; min-width: 0; }
+            .rental-create-page #products-container > div { gap: .5rem; }
+            .rental-create-page #products-container .flex.items-center.gap-1 { flex: 1 1 7rem; min-width: 0; }
+            .rental-create-page #products-container .flex.items-center.gap-1 select { flex: 1 1 auto; }
+            .rental-create-page #products-container .flex.items-center.gap-1 span { white-space: nowrap; }
+            .rental-create-page .btn-secondary, .rental-create-page .btn-primary { max-width: 100%; }
+        }
+    </style>
     <div class="flex items-center gap-3 mb-5">
         <a href="{{ route('rentals.index') }}" class="btn-secondary">
             <i data-lucide="arrow-left" class="w-4 h-4"></i>

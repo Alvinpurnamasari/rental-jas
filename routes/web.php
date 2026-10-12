@@ -182,6 +182,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
         Route::get('/{branch}', [BranchController::class, 'show'])->name('show');
         Route::get('/{branch}/edit', [BranchController::class, 'edit'])->name('edit');
         Route::patch('/{branch}', [BranchController::class, 'update'])->name('update');
+        Route::patch('/{branch}/toggle-status', [BranchController::class, 'toggleStatus'])->name('toggle-status');
         Route::delete('/{branch}', [BranchController::class, 'destroy'])->name('destroy');
     });
 

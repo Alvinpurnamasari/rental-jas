@@ -17,6 +17,63 @@
 .btn-blacklist{background:linear-gradient(135deg,#EF4444,#DC2626);box-shadow:0 2px 8px rgba(239,68,68,0.3)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50;display:flex;align-items:center;justify-content:center}
 .modal-box{background:white;border-radius:1rem;padding:1.5rem;max-width:40rem;width:90%;max-height:90vh;overflow:auto}
+
+/* Responsif khusus HP; tampilan desktop tetap */
+@media (max-width: 639px) {
+    .customer-detail-actions > * {
+        flex: 1 1 calc(50% - .5rem);
+        min-width: 0;
+        justify-content: center;
+        text-align: center;
+    }
+    .customer-detail-actions > a.btn-primary {
+        flex-basis: 100%;
+    }
+    .customer-detail-actions > form,
+    .customer-detail-actions > form button {
+        min-width: 0;
+    }
+    .customer-detail-actions > form {
+        flex: 1 1 calc(50% - .5rem);
+    }
+    .customer-detail-actions > form button {
+        width: 100%;
+        justify-content: center;
+    }
+    .customer-rental-row {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: .75rem;
+    }
+    .customer-rental-row .customer-rental-info {
+        flex: 1 1 calc(100% - 3.25rem);
+        min-width: 0;
+    }
+    .customer-rental-row .customer-rental-summary {
+        flex: 1 1 100%;
+        margin-left: 3.25rem;
+        text-align: left;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .375rem .5rem;
+    }
+    .customer-rental-row .customer-rental-summary p,
+    .customer-rental-row .customer-rental-summary span {
+        margin-top: 0;
+    }
+    .customer-rental-row .customer-rental-info > div:first-child {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    .customer-rental-row .customer-rental-info a {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    .customer-rental-row .customer-rental-info p {
+        overflow-wrap: anywhere;
+    }
+}
 </style>
 @endpush
 
@@ -40,7 +97,7 @@
 </div>
 @endif
 
-<div class="flex flex-wrap items-center gap-3">
+<div class="customer-detail-actions flex flex-wrap items-center gap-3">
 <a href="{{ route('customers.index') }}" class="btn-secondary"><i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali</a>
 @if(!$isDeactivated)
 <a href="{{ route('customers.edit', $customer) }}" class="btn-secondary"><i data-lucide="edit-2" class="w-4 h-4"></i> Edit</a>
@@ -110,11 +167,11 @@
 </div>
 <div class="divide-y divide-cream-sand/30">
 @forelse($customer->rentals as $rental)
-<div class="flex items-center gap-4 p-4 transition-colors hover:bg-cream/10 ds-transition">
+<div class="customer-rental-row flex items-center gap-4 p-4 transition-colors hover:bg-cream/10 ds-transition">
     <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 rental-status-{{ $rental->rental_status }}">
         <i data-lucide="{{ match($rental->rental_status) { 'returned' => 'check-circle', 'overdue' => 'alert-circle', 'active' => 'clock', default => 'hourglass' } }}" class="w-5 h-5 rental-status-icon-{{ $rental->rental_status }}"></i>
     </div>
-    <div class="flex-1 min-w-0">
+    <div class="customer-rental-info flex-1 min-w-0">
         <div class="flex items-center gap-2">
             <a href="{{ route('rentals.show', $rental) }}" class="font-mono font-semibold text-sm hover:underline" style="color:var(--primary)">{{ $rental->invoice_number }}</a>
             <span class="badge badge-{{ $rental->status_badge_color }} text-[10px]">{{ $rental->status_label }}</span>
@@ -126,7 +183,7 @@
             @endforeach
         </div>
     </div>
-    <div class="text-right flex-shrink-0">
+    <div class="customer-rental-summary text-right flex-shrink-0">
         <p class="font-bold text-sm" style="color:var(--text-dark)">Rp {{ number_format($rental->total_amount, 0, ',', '.') }}</p>
         <span class="badge {{ match($rental->payment_status) { 'paid' => 'badge-green', 'partial' => 'badge-yellow', default => 'badge-red' } }} text-[10px] mt-1">{{ $rental->payment_status_label }}</span>
         @if($rental->fine_status === 'unpaid' || $rental->fine_status === 'partial')

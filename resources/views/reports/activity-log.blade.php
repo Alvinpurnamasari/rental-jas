@@ -4,11 +4,11 @@
 @section('subtitle', 'Riwayat aktivitas dan perubahan data dalam sistem SewaJas')
 
 @section('content')
-<div class="max-w-full">
+<div class="w-full min-w-0 max-w-full">
 
     {{-- SUMMARY CARDS --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div class="card p-4 flex items-center gap-4" style="min-height: 100px">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 mb-4">
+        <div class="card p-3 sm:p-4 flex items-center gap-3 sm:gap-4" style="min-height: 100px">
             <div class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style="background: var(--secondary)">
                 <i data-lucide="scroll-text" class="w-5 h-5" style="color: var(--primary)"></i>
             </div>
@@ -17,7 +17,7 @@
                 <p class="font-playfair text-2xl font-bold" style="color: var(--text-dark)">{{ $summaryTotal }}</p>
             </div>
         </div>
-        <div class="card p-4 flex items-center gap-4" style="min-height: 100px">
+        <div class="card p-3 sm:p-4 flex items-center gap-3 sm:gap-4" style="min-height: 100px">
             <div class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:#EFF6FF">
                 <i data-lucide="clock" class="w-5 h-5" style="color:#1D4ED8"></i>
             </div>
@@ -26,7 +26,7 @@
                 <p class="font-playfair text-2xl font-bold" style="color: var(--text-dark)">{{ $summaryToday }}</p>
             </div>
         </div>
-        <div class="card p-4 flex items-center gap-4" style="min-height: 100px">
+        <div class="card p-3 sm:p-4 flex items-center gap-3 sm:gap-4" style="min-height: 100px">
             <div class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:#F0FDF4">
                 <i data-lucide="users" class="w-5 h-5" style="color:#15803D"></i>
             </div>
@@ -40,7 +40,7 @@
     {{-- TABS + FILTER --}}
     <div class="ds-card overflow-hidden mb-4">
         {{-- TAB NAVIGATION --}}
-        <div class="flex items-center gap-1 px-4 pt-3 overflow-x-auto" style="border-bottom: 1px solid var(--border)">
+        <div class="flex items-center gap-1 px-3 sm:px-4 pt-3 overflow-x-auto" style="border-bottom: 1px solid var(--border)">
             @foreach($tabs as $key => $label)
                 @php
                     $isActive = $tab === $key;
@@ -58,9 +58,9 @@
         </div>
 
         {{-- FILTER PANEL --}}
-        <form method="GET" action="{{ route('reports.activity-log') }}" class="p-4">
+        <form method="GET" action="{{ route('reports.activity-log') }}" class="p-3 sm:p-4">
             <input type="hidden" name="tab" value="{{ $tab }}">
-            <div class="grid grid-cols-1 lg:grid-cols-[160px_140px_140px_150px_180px_minmax(200px,1fr)] gap-4 items-end">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[160px_140px_140px_150px_180px_minmax(200px,1fr)] gap-3 sm:gap-4 items-end">
                 @if($isSuperAdmin)
                     <div class="flex flex-col gap-1.5">
                         <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-soft)">Cabang</label>
@@ -103,11 +103,11 @@
                     <input type="text" name="search" value="{{ $search }}" placeholder="Cari deskripsi, user, model..." class="form-input">
                 </div>
             </div>
-            <div class="flex items-center justify-end gap-2 mt-3">
-                <button type="submit" class="btn-primary">
+            <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 mt-4">
+                <button type="submit" class="btn-primary w-full sm:w-auto justify-center">
                     <i data-lucide="search" class="w-4 h-4"></i> Tampilkan
                 </button>
-                <a href="{{ route('reports.activity-log', array_filter(['tab' => $tab, 'branch_id' => $isSuperAdmin ? $selectedBranchId : null])) }}" class="btn-secondary">Reset</a>
+                <a href="{{ route('reports.activity-log', array_filter(['tab' => $tab, 'branch_id' => $isSuperAdmin ? $selectedBranchId : null])) }}" class="btn-secondary w-full sm:w-auto justify-center">Reset</a>
                 @php
                     $exportParams = [
                         'tab' => $tab,
@@ -119,10 +119,10 @@
                         'branch_id' => $selectedBranchId,
                     ];
                 @endphp
-                <a href="{{ route('reports.activity-log.export.csv', $exportParams) }}" class="btn-secondary">
+                <a href="{{ route('reports.activity-log.export.csv', $exportParams) }}" class="btn-secondary w-full sm:w-auto justify-center">
                     <i data-lucide="download" class="w-4 h-4"></i> Export CSV
                 </a>
-                <a href="{{ route('reports.activity-log.export.pdf', $exportParams) }}" class="btn-secondary">
+                <a href="{{ route('reports.activity-log.export.pdf', $exportParams) }}" class="btn-secondary w-full sm:w-auto justify-center">
                     <i data-lucide="file-text" class="w-4 h-4"></i> Export PDF
                 </a>
             </div>
@@ -130,16 +130,16 @@
     </div>
 
     {{-- TABLE --}}
-    <div class="ds-card overflow-hidden">
-        <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color:var(--border)">
+    <div class="ds-card min-w-0 overflow-hidden">
+        <div class="px-3 sm:px-4 py-3 border-b flex items-center justify-between gap-3" style="border-color:var(--border)">
             <h2 class="font-semibold text-sm" style="color:var(--text-dark)">
                 <i data-lucide="scroll-text" class="w-4 h-4 inline mr-2" style="color:var(--primary)"></i>
                 Riwayat Aktivitas
             </h2>
             <span class="text-xs" style="color:var(--text-soft)">{{ $logs->total() }} entri</span>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
+        <div class="w-full min-w-0 overflow-x-auto overscroll-x-contain">
+            <table class="w-full min-w-[1100px] text-left text-sm">
                 <colgroup>
                     <col style="width: 155px">
                     <col style="width: 140px">
@@ -361,7 +361,7 @@
             </table>
         </div>
         @if($logs->hasPages())
-        <div class="px-4 py-3 border-t border-gray-100 bg-white">
+        <div class="px-3 sm:px-4 py-3 border-t border-gray-100 bg-white overflow-x-auto">
             {{ $logs->appends(request()->query())->links('components.pagination') }}
         </div>
         @endif

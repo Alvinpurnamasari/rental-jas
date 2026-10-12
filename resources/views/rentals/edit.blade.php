@@ -3,6 +3,36 @@
 @section('title', 'Edit Penyewaan')
 @section('page-title', 'Edit Penyewaan')
 
+@push('styles')
+<style>
+    @media (max-width: 639px) {
+        .rental-edit-actions {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+            gap: .625rem;
+            align-items: stretch;
+        }
+        .rental-edit-actions > a,
+        .rental-edit-actions > button {
+            min-width: 0;
+            width: 100%;
+            justify-content: center;
+            padding-left: .75rem;
+            padding-right: .75rem;
+            white-space: normal;
+            text-align: center;
+        }
+        .rental-edit-actions > button span {
+            min-width: 0;
+        }
+        .rental-edit-actions > button span.flex {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="max-w-4xl mx-auto space-y-5">
     <div class="flex items-center gap-3 mb-5">
@@ -393,7 +423,7 @@
         </div>
 
         <!-- Submit -->
-        <div class="flex items-center justify-between">
+        <div class="rental-edit-actions flex items-center justify-between">
             <a href="{{ route('rentals.show', $rental) }}" class="btn-secondary">
                 <i data-lucide="x" class="w-4 h-4"></i>
                 Batal

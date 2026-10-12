@@ -199,7 +199,8 @@
                     </div>
 
                     @if ($rentalItemsList->isNotEmpty())
-                        <div class="overflow-x-auto">
+                        {{-- Tampilan desktop: tabel tetap seperti semula --}}
+                        <div class="hidden md:block overflow-x-auto">
                             <table class="elegant-table w-full">
                                 <thead>
                                     <tr>
@@ -246,6 +247,57 @@
                                     @endforeach
                                 </tbody>
                             </table>
+                        </div>
+
+                        {{-- Tampilan mobile: kartu agar kolom tidak bertumpuk atau terpotong --}}
+                        <div class="md:hidden divide-y" style="border-color:var(--border)">
+                            @foreach ($rentalItemsList as $ri)
+                                @php $r = $ri->rental; @endphp
+                                @if($r)
+                                    <div class="p-4 space-y-3">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold break-words" style="color:var(--text-dark)">
+                                                {{ optional($r->customer)->name ?? '-' }}
+                                            </p>
+                                            @if(optional($r->customer)->phone)
+                                                <p class="text-xs mt-0.5 break-words" style="color:var(--text-soft)">
+                                                    {{ $r->customer->phone }}
+                                                </p>
+                                            @endif
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div class="min-w-0 rounded-lg p-3" style="background:var(--secondary)">
+                                                <p class="text-xs mb-1" style="color:var(--text-soft)">Tanggal Sewa</p>
+                                                <p class="text-sm font-medium break-words" style="color:var(--text-dark)">
+                                                    {{ optional($r->rental_date)->format('d M Y') ?? '-' }}
+                                                </p>
+                                            </div>
+                                            <div class="min-w-0 rounded-lg p-3" style="background:var(--secondary)">
+                                                <p class="text-xs mb-1" style="color:var(--text-soft)">Tanggal Kembali</p>
+                                                <p class="text-sm font-medium break-words" style="color:var(--text-dark)">
+                                                    {{ optional($r->return_due_date)->format('d M Y') ?? '-' }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                            <p class="text-sm font-semibold" style="color:var(--text-dark)">
+                                                Rp {{ number_format($r->total_amount ?? 0, 0, ',', '.') }}
+                                            </p>
+                                            <div>
+                                                @if ($r->rental_status === 'active')
+                                                    <span class="badge badge-blue">Aktif</span>
+                                                @elseif($r->rental_status === 'returned')
+                                                    <span class="badge badge-green">Dikembalikan</span>
+                                                @elseif($r->rental_status === 'overdue')
+                                                    <span class="badge badge-red">Terlambat</span>
+                                                @else
+                                                    <span class="badge badge-gray">{{ $r->rental_status }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
                         </div>
                     @else
                         <div class="flex flex-col items-center justify-center py-12 text-center">

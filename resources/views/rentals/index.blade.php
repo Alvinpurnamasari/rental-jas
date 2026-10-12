@@ -17,7 +17,7 @@
 
             <form method="GET" class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
 
-                <div class="relative" style="width: 256px;">
+                <div class="relative w-full sm:w-64">
                     <i
                         data-lucide="search"
                         class="absolute w-4 h-4 text-slate-400 pointer-events-none"
@@ -29,8 +29,8 @@
                         name="search"
                         value="{{ request('search') }}"
                         placeholder="Cari invoice atau pelanggan..."
-                        class="form-input"
-                        style="width: 256px !important; padding-left: 40px !important;"
+                        class="form-input w-full"
+                        style="padding-left: 40px !important;"
                     >
                 </div>
             

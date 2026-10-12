@@ -95,10 +95,10 @@
     </div>
 
     {{-- Daftar --}}
-    <div class="divide-y" style="border-color:var(--border)">
+    <div class="divide-y divide-slate-100">
 
         @foreach($maintenanceItems as $item)
-        <div class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 last:border-b-0">
 
             <div class="flex items-center gap-4">
 
@@ -139,7 +139,7 @@
                     </div>
 
                     <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm"
-                         style="color:var(--text-soft)">
+                        style="color:var(--text-soft)">
 
                         <span>
                             Ukuran:
@@ -158,7 +158,17 @@
                             </strong>
                         </span>
 
+                        <span>
+                            Cabang:
+                            <strong>
+                                {{ $item->rental?->branch?->name
+                                    ?? $item->product?->branches?->pluck('name')->join(', ')
+                                    ?: '-' }}
+                            </strong>
+                        </span>
+
                     </div>
+
 
                     @if($item->return_notes)
                     <p class="text-xs mt-2"
@@ -389,21 +399,87 @@
                         <p class="text-xs" style="color:var(--text-soft)">{{ $product->code }}</p>
                     </div>
 
+                    {{-- Ukuran, warna, dan kategori --}}
                     <div class="flex flex-wrap gap-1 mt-0.5">
                         @forelse($product->sizes as $size)
-                        <span class="badge badge-blue-soft text-xs">{{ $size->size }}</span>
+                            <span class="badge badge-blue-soft text-xs">
+                                {{ $size->size }}
+                            </span>
                         @empty
-                        @if($product->size)
-                        <span class="badge badge-blue-soft text-xs">{{ $product->size }}</span>
-                        @endif
+                            @if($product->size)
+                                <span class="badge badge-blue-soft text-xs">
+                                    {{ $product->size }}
+                                </span>
+                            @endif
                         @endforelse
+                    
                         @if($product->color)
-                        <span class="badge badge-indigo-soft text-xs">{{ $product->color }}</span>
+                            <span class="badge badge-indigo-soft text-xs">
+                                {{ $product->color }}
+                            </span>
                         @endif
+                    
                         @if($product->category)
-                        <span class="badge badge-indigo-soft text-xs">{{ $product->category->name }}</span>
+                            <span class="badge badge-indigo-soft text-xs">
+                                {{ $product->category->name }}
+                            </span>
                         @endif
                     </div>
+                    
+                    {{-- Cabang produk --}}
+                    <div class="flex flex-wrap gap-1 mt-1">
+                        @forelse($product->branches as $branch)
+                            @php
+                                $branchColors = [
+                                    ['bg' => '#fff7ed', 'text' => '#c2410c', 'border' => '#fed7aa'],
+                                    ['bg' => '#fffbeb', 'text' => '#b45309', 'border' => '#fde68a'],
+                                    ['bg' => '#ecfdf5', 'text' => '#047857', 'border' => '#a7f3d0'],
+                                    ['bg' => '#eff6ff', 'text' => '#1d4ed8', 'border' => '#bfdbfe'],
+                                    ['bg' => '#f5f3ff', 'text' => '#6d28d9', 'border' => '#ddd6fe'],
+                                    ['bg' => '#fdf2f8', 'text' => '#be185d', 'border' => '#fbcfe8'],
+                                ];
+                    
+                                $branchColor = $branchColors[
+                                    ($branch->id - 1) % count($branchColors)
+                                ];
+                            @endphp
+                    
+                            <span
+                                class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
+                                style="background:{{ $branchColor['bg'] }}; color:{{ $branchColor['text'] }}; border-color:{{ $branchColor['border'] }}"
+                            >
+                                {{ $branch->name }}
+                            </span>
+                        @empty
+                            <span class="text-xs" style="color:var(--text-soft)">
+                                Belum ada cabang
+                            </span>
+                        @endforelse
+                    </div>
+                    
+                    {{-- Kondisi produk --}}
+                    <div class="mt-1">
+                        @php
+                            $conditionStyles = [
+                                'excellent' => 'background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;',
+                                'good'      => 'background:#dcfce7;color:#15803d;border:1px solid #86efac;',
+                                'fair'      => 'background:#fef3c7;color:#b45309;border:1px solid #fcd34d;',
+                                'poor'      => 'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;',
+                            ];
+                    
+                            $condition = strtolower($product->condition ?? '');
+                        @endphp
+                    
+                        @if($condition)
+                            <span
+                                class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                style="{{ $conditionStyles[$condition] ?? 'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;' }}"
+                            >
+                                {{ ucfirst($condition) }}
+                            </span>
+                        @endif
+                    </div>
+                    
 
                     <div class="flex items-end justify-between mt-auto pt-1.5 border-t" style="border-color:var(--border)">
                         <div>
@@ -493,12 +569,39 @@
                             <span class="text-sm" style="color:var(--text-soft)">{{ $product->color ?? '-' }}</span>
                         </td>
                         <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center hidden sm:table-cell">
+                          
+                            @php
+                                $branchColors = [
+                                    ['bg' => '#dbeafe', 'text' => '#1d4ed8', 'border' => '#93c5fd'],
+                                    ['bg' => '#dcfce7', 'text' => '#15803d', 'border' => '#86efac'],
+                                    ['bg' => '#fef3c7', 'text' => '#b45309', 'border' => '#fcd34d'],
+                                    ['bg' => '#f3e8ff', 'text' => '#7e22ce', 'border' => '#d8b4fe'],
+                                    ['bg' => '#ffe4e6', 'text' => '#be123c', 'border' => '#fda4af'],
+                                    ['bg' => '#cffafe', 'text' => '#0e7490', 'border' => '#67e8f9'],
+                                    ['bg' => '#ffedd5', 'text' => '#c2410c', 'border' => '#fdba74'],
+                                    ['bg' => '#e0e7ff', 'text' => '#4338ca', 'border' => '#a5b4fc'],
+                                ];
+                            @endphp
+                            
                             @foreach($product->branches as $branch)
-                                <span class="inline-block rounded-full bg-blue-50 text-blue-700 text-xs px-2 py-0.5 mb-1">{{ $branch->name }}</span>
+                                @php
+                                    $color = $branchColors[$branch->id % count($branchColors)];
+                                @endphp
+                            
+                                <span
+                                    class="inline-block rounded-full text-xs px-2 py-1 mb-1 font-medium whitespace-nowrap"
+                                    style="background: {{ $color['bg'] }};
+                                           color: {{ $color['text'] }};
+                                           border: 1px solid {{ $color['border'] }};"
+                                >
+                                    {{ $branch->name }}
+                                </span>
                             @endforeach
+                            
                             @if($product->branches->isEmpty())
                                 <span class="text-xs text-slate-400">-</span>
                             @endif
+                           
                         </td>
                         <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
                             <div class="text-sm font-medium" style="color:var(--text-dark)">
@@ -527,15 +630,27 @@
                         </td>
                         <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
                             <div class="flex justify-center">
-                            @if($product->condition === 'excellent')
-                                <span class="badge badge-gold">Excellent</span>
-                            @elseif($product->condition === 'good')
-                                <span class="badge badge-green">Good</span>
-                            @elseif($product->condition === 'fair')
-                                <span class="badge badge-gold">Fair</span>
-                            @else
-                                <span class="badge badge-red">{{ $product->condition ?? '-' }}</span>
-                            @endif
+                                @if($product->condition === 'excellent')
+                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                                          style="background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd;">
+                                        Excellent
+                                    </span>
+                                @elseif($product->condition === 'good')
+                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                                          style="background:#dcfce7; color:#15803d; border:1px solid #86efac;">
+                                        Good
+                                    </span>
+                                @elseif($product->condition === 'fair')
+                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                                          style="background:#fef3c7; color:#b45309; border:1px solid #fcd34d;">
+                                        Fair
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                                          style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">
+                                        {{ ucfirst($product->condition ?? '-') }}
+                                    </span>
+                                @endif
                             </div>
                         </td>
                         <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">

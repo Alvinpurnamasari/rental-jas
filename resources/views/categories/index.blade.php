@@ -7,14 +7,14 @@
 <div class="space-y-6">
 
     {{-- ── HEADER ──────────────────────────────────────────── --}}
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h1 class="font-playfair text-2xl font-bold" style="color: var(--text-dark)">Kategori</h1>
             <p class="text-sm mt-0.5" style="color: var(--text-soft)">Kelola kategori produk jas</p>
         </div>
 @auth
         @if(auth()->user()->isSuperAdmin())
-        <a href="{{ route('categories.create') }}" class="btn-primary">
+        <a href="{{ route('categories.create') }}" class="btn-primary w-full justify-center sm:w-auto">
             <i data-lucide="plus" class="w-4 h-4"></i>
             Tambah Kategori
         </a>
@@ -23,7 +23,7 @@
     </div>
 
     {{-- ── TABEL ────────────────────────────────────────────── --}}
-    <div class="ds-card overflow-hidden">
+    <div class="ds-card overflow-hidden p-3 md:p-0">
         @if($categories->isEmpty())
         <div class="flex flex-col items-center justify-center py-20 text-center">
             <div class="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
@@ -72,13 +72,16 @@
                                 {{ $category->slug }}
                             </span>
                         </td>
-                        <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
+                        <td class="px-5 py-3.5 align-middle text-center">
                             @if($category->icon)
-                            <div class="flex justify-center w-full">
-                                <i data-lucide="{{ $category->icon }}" class="w-5 h-5" style="color:var(--primary)"></i>
-                            </div>
+                                <div class="flex justify-center">
+                                    <div class="w-9 h-9 rounded-xl flex items-center justify-center"
+                                         style="background:rgba(37,99,235,.10); color:#2563eb;">
+                                        <i data-lucide="{{ $category->icon }}" class="w-5 h-5"></i>
+                                    </div>
+                                </div>
                             @else
-                            <span class="text-xs" style="color:var(--text-soft)">-</span>
+                                <span class="text-xs" style="color:var(--text-soft)">-</span>
                             @endif
                         </td>
                         <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
@@ -86,7 +89,19 @@
                         </td>
                         <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
                             <div class="flex justify-center">
-                            <span class="badge badge-gold">{{ $category->products_count }} produk</span>
+                                @if($category->products_count > 0)
+                                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold"
+                                          style="background:#dbeafe; color:#1d4ed8;">
+                                        <i data-lucide="package-check" class="w-3.5 h-3.5"></i>
+                                        {{ $category->products_count }} produk
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold"
+                                          style="background:#f1f5f9; color:#64748b;">
+                                        <i data-lucide="package" class="w-3.5 h-3.5"></i>
+                                        0 produk
+                                    </span>
+                                @endif
                             </div>
                         </td>
                         <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
@@ -158,7 +173,7 @@
                 </div>
 
                 {{-- Actions --}}
-                <div class="flex items-center gap-2 pt-2 border-t" style="border-color:var(--border)">
+                <div class="grid grid-cols-2 items-stretch gap-2 pt-2 border-t" style="border-color:var(--border)">
                     @auth
                         @if(auth()->user()->isSuperAdmin())
                         <a href="{{ route('categories.edit', $category) }}"
