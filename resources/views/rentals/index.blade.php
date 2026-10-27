@@ -5,63 +5,91 @@
 @section('subtitle', 'Daftar semua transaksi penyewaan')
 
 @section('content')
-    <!-- Quick Actions & Filters -->
-    <div class="ds-card mb-6 px-6 py-6">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div class="flex items-center gap-3 flex-wrap">
-                <a href="{{ route('rentals.create') }}" class="btn-primary">
-                    <i data-lucide="plus" class="w-4 h-4"></i>
-                    Tambah Penyewaan
-                </a>
-            </div>
+    
+<!-- Quick Actions & Filters -->
+<div class="ds-card mb-6 p-4 sm:p-5">
+    <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
 
-            <form method="GET" class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-
-                <div class="relative w-full sm:w-64">
-                    <i
-                        data-lucide="search"
-                        class="absolute w-4 h-4 text-slate-400 pointer-events-none"
-                        style="left: 12px; top: 50%; transform: translateY(-50%);"
-                    ></i>
-                
-                    <input
-                        type="text"
-                        name="search"
-                        value="{{ request('search') }}"
-                        placeholder="Cari invoice atau pelanggan..."
-                        class="form-input w-full"
-                        style="padding-left: 40px !important;"
-                    >
-                </div>
-            
-                <select name="status" class="form-input sm:w-44">
-                    <option value="">Semua Status</option>
-                    <option value="waiting" {{ request('status') === 'waiting' ? 'selected' : '' }}>Menunggu</option>
-                    <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Aktif</option>
-                    <option value="overdue" {{ request('status') === 'overdue' ? 'selected' : '' }}>Terlambat</option>
-                    <option value="returned" {{ request('status') === 'returned' ? 'selected' : '' }}>Selesai</option>
-                </select>
-            
-                <button type="submit" class="btn-filter whitespace-nowrap">
-                    <i data-lucide="filter" class="w-4 h-4"></i>
-                    Filter
-                </button>
-            
-                @if(request('search') || request('status'))
-                    <a href="{{ route('rentals.index') }}" class="btn-secondary whitespace-nowrap">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                        Reset
-                    </a>
-                @endif
-            
-            </form>
+        <!-- Tombol Tambah -->
+        <div class="flex shrink-0">
+            <a href="{{ route('rentals.create') }}"
+               class="btn-primary w-full sm:w-auto justify-center">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                Tambah Penyewaan
+            </a>
         </div>
+
+
+<!-- Pencarian dan Filter -->
+<form method="GET"
+      class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(280px,1fr)_200px_auto_auto] gap-3 w-full xl:max-w-[850px]">
+
+    <!-- Pencarian -->
+    <div class="relative min-w-0 sm:col-span-2 xl:col-span-1">
+        <i data-lucide="search"
+           class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none">
+        </i>
+
+        <input
+            type="text"
+            name="search"
+            value="{{ request('search') }}"
+            placeholder="Cari invoice atau pelanggan..."
+            class="form-input w-full"
+            style="padding-left: 42px !important;"
+        >
     </div>
+
+    <!-- Status -->
+    <select name="status" class="form-input w-full min-w-0">
+        <option value="">Semua Status</option>
+        <option value="waiting" {{ request('status') === 'waiting' ? 'selected' : '' }}>
+            Menunggu
+        </option>
+        <option value="processing" {{ request('status') === 'processing' ? 'selected' : '' }}>
+            Diproses
+        </option>
+        <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>
+            Aktif
+        </option>
+        <option value="overdue" {{ request('status') === 'overdue' ? 'selected' : '' }}>
+            Terlambat
+        </option>
+        <option value="returned" {{ request('status') === 'returned' ? 'selected' : '' }}>
+            Dikembalikan
+        </option>
+        <option value="unpaid_fine" {{ request('status') === 'unpaid_fine' ? 'selected' : '' }}>
+            Ada Denda Belum Dibayar
+        </option>
+    </select>
+
+
+    <!-- Filter -->
+    <button type="submit"
+            class="btn-filter w-full xl:w-auto justify-center whitespace-nowrap">
+        <i data-lucide="filter" class="w-4 h-4"></i>
+        Filter
+    </button>
+
+    <!-- Reset -->
+    @if(request('search') || request('status'))
+        <a href="{{ route('rentals.index') }}"
+           class="btn-secondary w-full xl:w-auto justify-center whitespace-nowrap">
+            <i data-lucide="x" class="w-4 h-4"></i>
+            Reset
+        </a>
+    @endif
+
+</form>
+
+    </div>
+</div>
+
 
     <!-- Table Container -->
     <div class="ds-card overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
+            <table class="w-full min-w-[1120px] text-left text-sm">
                 <colgroup>
                     <col style="width: 12%">
                     <col style="width: 22%">
@@ -84,22 +112,22 @@
                 </thead>
                 <tbody class="divide-y divide-cream-sand/30">
                     @forelse($rentals as $rental)
-                    <tr class="transition-colors">
-                        <td class="px-5 py-3.5 text-sm text-slate-700 align-middle">
+                    <tr class="transition-colors hover:bg-blue-50/40">
+                        <td class="px-4 py-3.5 text-sm text-slate-700 align-middle">
                             <div class="font-serif font-bold text-bark-dark text-sm leading-tight">{{ $rental->invoice_number }}</div>
                         </td>
-                        <td class="px-5 py-3.5 text-sm text-slate-700 align-middle">
+                        <td class="px-4 py-3.5 text-sm text-slate-700 align-middle">
                             <div class="font-semibold text-bark-dark text-sm leading-tight">{{ optional($rental->customer)->name ?? '-' }}</div>
                             <div class="text-xs text-stone-400 mt-0.5">{{ optional($rental->customer)->phone ?? '-' }}</div>
                         </td>
-                        <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
+                        <td class="px-4 py-3.5 text-sm text-slate-700 align-middle text-center">
                             <div class="flex justify-center">
                                 <span class="badge badge-gray">
                                     {{ $rental->items->count() }} Item
                                 </span>
                             </div>
                         </td>
-                        <td class="px-5 py-3.5 text-sm text-slate-700 align-middle">
+                        <td class="px-4 py-3.5 text-sm text-slate-700 align-middle">
                             <div class="text-xs font-semibold text-bark-light leading-tight">
                                 {{ optional($rental->rental_date)->format('d M Y') ?? '' }}
                             </div>
@@ -107,49 +135,45 @@
                                 Tempo: {{ optional($rental->return_due_date)->format('d M Y') ?? '' }}
                             </div>
                         </td>
-                        <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
+                        <td class="px-4 py-3.5 text-sm text-slate-700 align-middle text-center">
                             @php
                                 $statusClasses = [
                                     'waiting' => 'badge-gold',
+                                    'processing' => 'badge-blue',
                                     'active' => 'badge-green',
                                     'overdue' => 'badge-red',
-                                    'returned' => 'badge-blue',
+                                    'returned' => $rental->status_badge_color === 'green' ? 'badge-green' : ($rental->status_badge_color === 'red' ? 'badge-red' : 'badge-gold'),
                                     'cancelled' => 'badge-gray',
                                 ];
                                 $statusLabels = [
                                     'waiting' => 'Menunggu',
+                                    'processing' => 'Diproses',
                                     'active' => 'Aktif',
                                     'overdue' => 'Terlambat',
-                                    'returned' => 'Selesai',
+                                    'returned' => $rental->status_label,
                                     'cancelled' => 'Dibatalkan',
                                 ];
                             @endphp
-                            <div class="flex justify-center">
-                                @php
-                                    $displayStatus = $rental->rental_status;
-
-                                    // Jika belum dikembalikan dan sudah melewati deadline
-                                    if (
-                                        in_array($rental->rental_status, ['active', 'overdue']) &&
-                                        $rental->return_due_date &&
-                                        $rental->return_due_date->isPast()
-                                    ) {
-                                        $displayStatus = 'overdue';
-                                    }
-                                @endphp
-
-                                <div class="flex justify-center">
-                                    <span class="badge {{ $statusClasses[$displayStatus] ?? 'badge-gray' }}">
-                                        {{ $statusLabels[$displayStatus] ?? $displayStatus }}
-                                    </span>
-                                </div>
+                            <div class="flex flex-wrap justify-center gap-1">
+                                <span class="badge {{ $statusClasses[$rental->rental_status] ?? 'badge-gray' }}">
+                                    {{ $statusLabels[$rental->rental_status] ?? $rental->rental_status }}
+                                </span>
+                                @if((float) $rental->fine_amount > 0)
+                                    @if($rental->fine_status === \App\Models\Rental::FINE_UNPAID)
+                                        <span class="badge badge-red">Denda Belum Lunas</span>
+                                    @elseif($rental->fine_status === \App\Models\Rental::FINE_PARTIAL)
+                                        <span class="badge badge-gold">Denda Sebagian</span>
+                                    @elseif($rental->fine_status === \App\Models\Rental::FINE_PAID)
+                                        <span class="badge badge-green">Denda Lunas</span>
+                                    @endif
+                                @endif
                             </div>
                         </td>
-                        <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-right">
+                        <td class="px-4 py-3.5 text-sm text-slate-700 align-middle text-right">
                             <div class="font-serif font-bold text-bark-dark text-sm">Rp{{ number_format($rental->total_amount, 0, ',', '.') }}</div>
                         </td>
-                        <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
-                            <div class="flex items-center justify-center gap-2">
+                        <td class="px-4 py-3.5 text-sm text-slate-700 align-middle text-center">
+                            <div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
                                 <a href="{{ route('rentals.show', $rental) }}" class="action-btn" title="View">
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </a>
@@ -179,6 +203,7 @@
 
                                 @auth
                                 @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
+                                @if(($rental->rental_status === 'waiting' && $rental->payment_status === 'unpaid') || in_array($rental->rental_status, ['cancelled', 'returned']))
                                 <form method="POST" action="{{ route('rentals.destroy', $rental) }}" id="deleteRentalForm_{{ $rental->id }}" class="hidden">
                                     @csrf
                                     @method('DELETE')
@@ -186,6 +211,7 @@
                                 <button type="button" onclick="confirmDelete('deleteRentalForm_{{ $rental->id }}', 'penyewaan {{ $rental->invoice_number }}')" class="action-btn" title="Hapus Penyewaan">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
+                                @endif
                                 @endif
                                 @endauth
 

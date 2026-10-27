@@ -230,12 +230,6 @@ class BroadcastCampaignController extends Controller
 
         $waUrl = "https://wa.me/{$phone}?text={$encodedMessage}";
 
-        $log->update([
-            'status' => 'sent',
-            'sent_at' => now(),
-        ]);
-
-        $campaign->checkCompletion();
 
         return redirect()->away($waUrl);
     }
@@ -383,4 +377,55 @@ class BroadcastCampaignController extends Controller
 
         return response()->json(['status' => 'ok']);
     }
+   
+    public function confirmCustomerSent(
+        Request $request,
+        BroadcastCampaign $campaign,
+        int $customer
+    ) {
+        $this->authorizeCampaignBranch($request, $campaign);
+
+        $log = $campaign->logs()
+            ->where('recipient_type', 'customer')
+            ->where('recipient_id', $customer)
+            ->where('status', 'pending')
+            ->first();
+
+        if (!$log) {
+            return back()->with(
+                'error',
+                'Log broadcast tidak ditemukan atau sudah dikonfirmasi.'
+            );
+        }
+
+        // Pastikan customer masih ada sebelum mengonfirmasi.
+        $customerData = Customer::find($customer);
+
+        if (!$customerData) {
+            return back()->with(
+                'error',
+                'Customer ini sudah tidak ditemukan. Status broadcast tidak diubah.'
+            );
+        }
+
+        if ($request->user()->isAdminToko()) {
+            abort_unless(
+                (int) $customerData->branch_id === (int) $campaign->branch_id,
+                403
+            );
+        }
+
+        $log->update([
+            'status' => 'sent',
+            'sent_at' => now(),
+        ]);
+
+        $campaign->checkCompletion();
+
+        return back()->with(
+            'success',
+            'Pengiriman berhasil dikonfirmasi.'
+        );
+    }
+
 }

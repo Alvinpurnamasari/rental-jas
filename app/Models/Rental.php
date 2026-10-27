@@ -176,6 +176,18 @@ class Rental extends Model
     {
         return max(0, $this->total_amount - $this->paid_amount);
     }
+    
+/**
+ * Memeriksa apakah denda rental masih memiliki tagihan.
+ */
+public function hasOutstandingFine(): bool
+{
+    $fineAmount = (float) ($this->fine_amount ?? 0);
+    $finePaidAmount = (float) ($this->fine_paid_amount ?? 0);
+
+    return $fineAmount > $finePaidAmount;
+}
+
 
     public static function statusLabels(): array
     {

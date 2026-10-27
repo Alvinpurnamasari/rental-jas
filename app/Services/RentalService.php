@@ -18,6 +18,9 @@ use Carbon\Carbon;
 
 class RentalService
 {
+    /** Tarif denda keterlambatan tetap per hari. */
+    private const LATE_FEE_PER_DAY = 25000;
+
     public function updatePayment(Rental $rental, \App\Models\Payment $payment, array $data): void
     {
         app(\App\Services\PaymentService::class)->update($rental, $payment, $data);
@@ -88,14 +91,14 @@ class RentalService
         $rentalFee = (float) $rental->total_amount;
         $fineAmount = (float) $rental->fine_amount;
 
+        // Tagihan sewa dan denda selalu dihitung terpisah berdasarkan tipe pembayaran.
+        // Pembayaran denda tidak boleh melunasi tagihan sewa, dan sebaliknya.
         $totalPaidForRental = (float) $rental->payments()
             ->whereIn('type', ['rental', 'deposit'])
-            ->where('type', '!=', 'refund')
             ->sum('amount');
 
         $totalPaidForFine = (float) $rental->payments()
             ->whereIn('type', ['late_fee', 'damage_fee'])
-            ->where('type', '!=', 'refund')
             ->sum('amount');
 
         $remainingRental = max(0, $rentalFee - $totalPaidForRental);
@@ -109,20 +112,18 @@ class RentalService
             $paymentStatus = Rental::PAYMENT_PAID;
         }
 
-        $totalPaidRaw = (float) $rental->payments()
-            ->where('type', '!=', 'refund')
-            ->sum('amount');
-        $totalOwed = max(0, $rentalFee + $fineAmount);
-        $grossOverpayment = max(0, $totalPaidRaw - $totalOwed);
-
+        // Kembalian hanya berasal dari kelebihan pembayaran dalam kelompoknya sendiri.
+        // Kelebihan pembayaran sewa tidak otomatis dialihkan untuk membayar denda.
         $refundGiven = (float) abs($rental->payments()
             ->where('type', 'refund')
             ->sum('amount'));
-        $changeAmount = max(0, $grossOverpayment - $refundGiven);
 
-        $totalReceived = $totalPaidRaw - $refundGiven;
-        $availableForFine = max(0, $totalReceived - $rentalFee);
-        $finePaidAmount = min($fineAmount, $availableForFine);
+        $rentalOverpayment = max(0, $totalPaidForRental - $rentalFee);
+        $fineOverpayment = max(0, $totalPaidForFine - $fineAmount);
+        $changeAmount = max(0, $rentalOverpayment + $fineOverpayment - $refundGiven);
+
+        // Denda dianggap terbayar hanya dari pembayaran bertipe late_fee/damage_fee.
+        $finePaidAmount = min($fineAmount, max(0, $totalPaidForFine));
 
         if ($fineAmount <= 0) {
             $fineStatus = Rental::FINE_NONE;
@@ -198,6 +199,29 @@ class RentalService
             'total_amount' => (float) ($rental->total_amount ?? 0),
             'paid_amount' => (float) ($rental->paid_amount ?? 0),
             'remaining_amount' => (float) ($rental->remaining_amount ?? 0),
+            'payment_balances' => [
+                'rental' => max(
+                    0,
+                    (float) ($rental->total_amount ?? 0)
+                    - (float) ($rental->paid_amount ?? 0)
+                ),
+                'late_fee' => max(
+                    0,
+                    (float) ($rental->late_fee ?? 0)
+                    - (float) $rental->payments()->where('type', 'late_fee')->sum('amount')
+                ),
+                'damage_fee' => max(
+                    0,
+                    (float) $rental->items->sum('damage_fee')
+                    - (float) $rental->payments()->where('type', 'damage_fee')->sum('amount')
+                ),
+                'deposit' => max(
+                    0,
+                    (float) $rental->guarantees
+                        ->where('type', 'deposit')
+                        ->sum('deposit_amount')
+                ),
+            ],
             'late_fee' => (float) ($rental->late_fee ?? 0),
             'fine_amount' => (float) ($rental->fine_amount ?? 0),
             'fine_paid_amount' => (float) ($rental->fine_paid_amount ?? 0),
@@ -503,8 +527,19 @@ class RentalService
                 $amount = preg_replace('/[^0-9]/', '', $amount);
             }
             $amount = (float) $amount;
+            if ($amount <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Jumlah pembayaran harus lebih besar dari Rp0.',
+                ]);
+            }
+
             $now = now();
             $paymentType = $data['payment_type'] ?? 'rental';
+            if (!in_array($paymentType, ['rental', 'deposit', 'late_fee', 'damage_fee'], true)) {
+                throw ValidationException::withMessages([
+                    'payment_type' => 'Tipe pembayaran tidak valid.',
+                ]);
+            }
 
             $recentPayment = Payment::where('rental_id', $rental->id)
                 ->where('amount', $amount)
@@ -531,27 +566,8 @@ class RentalService
                 'paid_at'          => $now,
             ]);
 
-            $updateData = [];
-
-            if (in_array($paymentType, ['late_fee', 'damage_fee'])) {
-                $updateData['fine_paid_amount'] = (float) $rental->fine_paid_amount + $amount;
-            } else {
-                $updateData['paid_amount'] = (float) $rental->paid_amount + $amount;
-            }
-
-            $newPaidAmount = (float) $rental->paid_amount + (in_array($paymentType, ['late_fee', 'damage_fee']) ? 0 : $amount);
-            $rentalFee = (float) $rental->total_amount;
-
-            if ($newPaidAmount >= $rentalFee) {
-                $updateData['payment_status'] = Rental::PAYMENT_PAID;
-            } elseif ($newPaidAmount > 0) {
-                $updateData['payment_status'] = Rental::PAYMENT_PARTIAL;
-            } else {
-                $updateData['payment_status'] = Rental::PAYMENT_UNPAID;
-            }
-
-            $rental->update($updateData);
-
+            // Jangan menambah paid_amount/fine_paid_amount secara manual di sini.
+            // Satu sumber kebenaran adalah riwayat pembayaran, yang dihitung ulang di bawah.
             $this->recalculatePaymentStatus($rental);
             $newValues = $this->rentalSnapshot($rental);
 
@@ -578,10 +594,12 @@ class RentalService
             $lateFee = 0;
             $totalDamageFees = 0;
 
-            if ($rental->return_due_date->lt($now)) {
-                $overdueDays = $rental->return_due_date->diffInDays($now);
-                $dailyRate = $rental->subtotal / $rental->duration_days;
-                $lateFee = (float) round($dailyRate * $overdueDays * 0.5);
+            if ($rental->return_due_date) {
+                // Hitung berdasarkan hari kalender agar keterlambatan 7 hari = 7 x Rp25.000.
+                $dueDate = Carbon::parse($rental->return_due_date)->startOfDay();
+                $returnDate = $now->copy()->startOfDay();
+                $overdueDays = max(0, (int) $dueDate->diffInDays($returnDate, false));
+                $lateFee = (float) ($overdueDays * self::LATE_FEE_PER_DAY);
             }
 
             foreach ($rental->items as $item) {

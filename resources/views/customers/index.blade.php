@@ -26,12 +26,12 @@
     @endauth
 
     <!-- Quick Actions & Filters -->
-    <div class="ds-card p-6 mb-6">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div class="flex items-center gap-3 flex-wrap">
+    <div class="ds-card p-4 sm:p-6 mb-6">
+        <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
                 @auth
                 @if(in_array(auth()->user()->role, ['super_admin','admin_toko','sales']))
-                <a href="{{ route('customers.create') }}" class="btn-primary">
+                <a href="{{ route('customers.create') }}" class="btn-primary flex w-full items-center justify-center whitespace-nowrap sm:w-auto">
                     <i data-lucide="user-plus" class="w-4 h-4"></i>
                     Tambah Pelanggan
                 </a>
@@ -40,7 +40,7 @@
 
                 @auth
                 @if(in_array(auth()->user()->role, ['super_admin','admin_toko']))
-                <a href="{{ route('customers.export') }}" class="btn-secondary">
+                <a href="{{ route('customers.export') }}" class="btn-secondary flex w-full items-center justify-center whitespace-nowrap sm:w-auto">
                     <i data-lucide="download" class="w-4 h-4"></i>
                     Ekspor Excel
                 </a>
@@ -48,27 +48,19 @@
                 @endauth
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto" x-data="{}">
-                <div class="relative w-full sm:w-80">
-                    <i
-                        data-lucide="search"
-                        class="absolute w-4 h-4 text-slate-400 pointer-events-none"
-                        style="left: 12px; top: 50%; transform: translateY(-50%);"
-                    ></i>
-                
-                    <input
-                        type="text"
-                        name="search"
-                        value="{{ request('search') }}"
-                        placeholder="Cari nama pelanggan..."
-                        class="form-input w-full"
-                        style="padding-left: 40px !important;"
-                    >
+            <div class="grid w-full grid-cols-2 items-center gap-3 lg:flex lg:flex-nowrap" x-data="{}">
+                <div class="relative col-span-2 min-w-0 lg:min-w-[320px]" style="flex: 3 1 0%;">
+                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
+                    <input type="text" placeholder="Cari nama atau nomor HP..."
+                           class="form-input ds-input-icon h-11 w-full min-w-0"
+                           id="search-customer"
+                           value="{{ request('search') }}"
+                           onkeyup="if(event.key === 'Enter') applyCustomerFilters()">
                 </div>
 
                 @auth
                 @if(auth()->user()->isSuperAdmin())
-                <select class="form-input sm:w-44" id="status-filter" onchange="applyCustomerFilters()">
+                <select class="form-input col-span-1 h-11 w-full min-w-0" style="flex: 0 0 12rem;" id="status-filter" onchange="applyCustomerFilters()">
                     <option value="active" {{ ($statusFilter ?? request('status', 'active')) === 'active' ? 'selected' : '' }}>Aktif</option>
                     <option value="deactivated" {{ ($statusFilter ?? request('status')) === 'deactivated' ? 'selected' : '' }}>Dinonaktifkan</option>
                     <option value="all" {{ ($statusFilter ?? request('status')) === 'all' ? 'selected' : '' }}>Semua</option>
@@ -76,14 +68,16 @@
                 @endif
                 @endauth
 
-                <select class="form-input sm:w-40" id="bl-filter" onchange="applyCustomerFilters()">
-                    <option value="">Semua</option>
-                    <option value="normal" {{ request('bl_status') === 'normal' ? 'selected' : '' }}>
-                        Normal
-                    </option>
-                    <option value="blacklisted" {{ request('bl_status') === 'blacklisted' ? 'selected' : '' }}>
-                        Diblokir
-                    </option>
+                @auth
+                @if(auth()->user()->isSuperAdmin())
+                <select class="form-input col-span-1 h-11 w-full min-w-0" style="flex: 0 0 12rem;" id="bl-filter" onchange="applyCustomerFilters()">
+                @else
+                <select class="form-input col-span-1 h-11 w-full min-w-0" style="flex: 0 0 12rem;" id="bl-filter" onchange="applyCustomerFilters()">
+                @endif
+                @endauth
+                    <option value="">Semua Status Blokir</option>
+                    <option value="normal" {{ request('bl_status') === 'normal' ? 'selected' : '' }}>Normal</option>
+                    <option value="blacklisted" {{ request('bl_status') === 'blacklisted' ? 'selected' : '' }}>Diblokir</option>
                 </select>
             </div>
         </div>

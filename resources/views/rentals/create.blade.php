@@ -58,8 +58,10 @@
         <form method="POST" action="{{ route('rentals.store') }}" enctype="multipart/form-data" x-data="rentalForm()" @submit.prevent="submitForm()" novalidate>
         @csrf
 
+        <!-- Satu container utama untuk seluruh form penyewaan -->
+        <div class="card p-6 space-y-6">
         <!-- Customer & Rental Info -->
-        <div class="card p-6">
+        <div class="space-y-4">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="user" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Informasi Pelanggan & Penyewaan
@@ -67,11 +69,25 @@
             <div class="grid sm:grid-cols-2 gap-4">
                 <div class="sm:col-span-2">
                     <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Pelanggan <span class="text-red-400">*</span></label>
-                    <div class="relative" @click.outside="customerDropdownOpen = false">
+                    <div class="space-y-2" @click.outside="customerDropdownOpen = false">
+                        <select
+                            x-model="customerListSelection"
+                            @change="chooseCustomerFromList()"
+                            :class="{ 'is-error': customerError }"
+                            class="form-input"
+                            aria-label="Pilih pelanggan dari daftar"
+                        >
+                            <option value="">Pilih pelanggan dari daftar...</option>
+                            <template x-for="customer in customers" :key="customer.id">
+                                <option :value="String(customer.id)" x-text="customer.name + ' - ' + customer.phone"></option>
+                            </template>
+                        </select>
+                        <p class="text-xs text-slate-500">Atau cari pelanggan berdasarkan nama atau nomor HP:</p>
+                        <div class="relative">
                         <input type="text"
                             x-model="customerSearch"
                             @focus="customerDropdownOpen = true"
-                            @input="selectedCustomer = null; customerError = false"
+                            @input="selectedCustomer = null; customerListSelection = ''; customerError = false"
                             :class="{ 'is-error': customerError }"
                             class="form-input"
                             placeholder="Ketik nama atau nomor HP pelanggan..."
@@ -100,6 +116,7 @@
                                 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                                 <span>Tambah '<span x-text="customerSearch"></span>' sebagai pelanggan baru</span>
                             </div>
+                        </div>
                         </div>
                     </div>
                     @error('customer_id')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
@@ -176,7 +193,7 @@
         </div>
 
         <!-- Produk -->
-        <div class="card p-6">
+        <div class="border-t border-slate-200 pt-6">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="package" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Produk
@@ -222,7 +239,7 @@
         </div>
 
         <!-- Diskon & Catatan -->
-        <div class="card p-6">
+        <div class="border-t border-slate-200 pt-6">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="file-text" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Diskon & Catatan
@@ -241,7 +258,7 @@
         </div>
 
         <!-- Jaminan & Pembayaran -->
-        <div class="card p-6">
+        <div class="border-t border-slate-200 pt-6">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="shield" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Jaminan & Pembayaran
@@ -339,49 +356,17 @@
                     @error('guarantee_id_photo')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                     <p x-show="photoError" x-transition class="text-xs text-red-400 mt-1">Foto KTP/SIM wajib diupload</p>
 
-                    <!-- Quality Check Status -->
-                    <div x-show="photoState.checked" class="mt-3 space-y-1.5">
-                        <div class="flex items-center gap-2 text-xs" :class="photoState.resolutionOk ? 'text-green-600' : 'text-red-500'">
-                            <template x-if="photoState.resolutionOk">
-                                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                            </template>
-                            <template x-if="!photoState.resolutionOk">
-                                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                            </template>
-                            <span x-text="photoState.resolutionOk ? '&#x2713; Resolusi cukup' : '&#x2717; Resolusi terlalu kecil (min. 1280x720)'"></span>
-                        </div>
-                        <div class="flex items-center gap-2 text-xs" :class="photoState.blurOk ? 'text-green-600' : 'text-red-500'">
-                            <template x-if="photoState.blurOk">
-                                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                            </template>
-                            <template x-if="!photoState.blurOk">
-                                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                            </template>
-                            <span x-text="photoState.blurOk ? '&#x2713; Tidak blur' : '&#x2717; Foto terlalu blur'"></span>
-                        </div>
-                        <div class="flex items-center gap-2 text-xs" :class="photoState.brightnessOk ? 'text-green-600' : 'text-red-500'">
-                            <template x-if="photoState.brightnessOk">
-                                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                            </template>
-                            <template x-if="!photoState.brightnessOk">
-                                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                            </template>
-                            <span x-text="photoState.brightnessOk ? '&#x2713; Pencahayaan baik' : '&#x2717; Foto terlalu gelap'"></span>
-                        </div>
-                        <div class="flex items-center gap-2 text-xs" :class="photoState.verified ? 'text-green-600' : 'text-amber-600'">
-                            <template x-if="photoState.verified">
-                                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                            </template>
-                            <template x-if="!photoState.verified">
-                                <svg class="w-4 h-4 shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-                            </template>
-                            <span x-text="photoState.verified ? '&#x2713; Siap diupload' : 'Perbaiki kualitas foto sebelum upload'"></span>
-                        </div>
+                    <p class="mt-2 text-xs text-slate-500">Foto KTP/SIM akan dikompres otomatis jika ukurannya besar. Ukuran file setelah kompresi dibatasi maksimal 2 MB.</p>
+                    <p x-show="photoState.processing" x-transition class="mt-2 text-xs text-blue-600">Mengoptimalkan ukuran foto...</p>
+                    <p x-show="photoState.checked && photoState.verified" x-transition class="mt-2 text-xs text-green-600">✓ Foto siap diupload <span x-show="photoState.sizeLabel" x-text="'(' + photoState.sizeLabel + ')' "></span></p>
+                    <p x-show="photoState.checked && !photoState.verified && !photoState.processing" x-transition class="mt-2 text-xs text-red-500">Foto gagal dikompres. Coba pilih foto lain.</p>
                 </div>
         </div>
 
+        </div> <!-- Penutup container utama -->
+
         <!-- Submit -->
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between mt-6 pt-5 border-t border-slate-200">
             <a href="{{ route('rentals.index') }}" class="btn-secondary">
                 <i data-lucide="x" class="w-4 h-4"></i>
                 Batal
@@ -444,13 +429,12 @@
             previewUrl: null,
             checked: false,
             verified: false,
-            resolutionOk: false,
-            blurOk: false,
-            brightnessOk: false,
+            processing: false,
+            sizeLabel: '',
         },
-        LAPLACIAN_THRESHOLD: 100,
 
         customerSearch: @json($oldCustomer ? $oldCustomer->name . ' - ' . $oldCustomer->phone : ''),
+        customerListSelection: @json($oldCustomer ? (string) $oldCustomer->id : ''),
         selectedCustomer: @json($oldCustomer ? ['id' => $oldCustomer->id, 'name' => $oldCustomer->name, 'phone' => $oldCustomer->phone] : null),
         customerDropdownOpen: false,
         showAddModal: false,
@@ -556,8 +540,20 @@
             this.itemsErrors[index].quantity = !item.quantity || item.quantity < 1;
         },
 
+        chooseCustomerFromList() {
+            if (!this.customerListSelection) {
+                this.selectedCustomer = null;
+                this.customerSearch = '';
+                this.customerError = false;
+                return;
+            }
+            const customer = this.customers.find(c => String(c.id) === String(this.customerListSelection));
+            if (customer) this.selectCustomer(customer);
+        },
+
         selectCustomer(customer) {
             this.selectedCustomer = customer;
+            this.customerListSelection = String(customer.id);
             this.customerSearch = customer.name + ' - ' + customer.phone;
             this.customerError = false;
             this.customerDropdownOpen = false;
@@ -884,103 +880,95 @@
             if (file) this.processFile(file);
         },
 
-        processFile(file) {
-            // Validate type
+        async processFile(file) {
             if (!['image/jpeg', 'image/png'].includes(file.type)) {
                 alert('Format tidak didukung. Gunakan JPG atau PNG.');
                 return;
             }
-            // Validate size
-            if (file.size > 2 * 1024 * 1024) {
-                alert('Ukuran file maksimal 2MB.');
-                return;
-            }
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                this.photoState.previewUrl = e.target.result;
-                this.photoState.file = file;
-                this.photoState.checked = false;
+            this.photoState.processing = true;
+            this.photoState.checked = false;
+            this.photoState.verified = false;
+            this.photoState.file = null;
+            this.photoState.sizeLabel = '';
+
+            try {
+                const imageUrl = URL.createObjectURL(file);
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = imageUrl;
+                });
+
+                // Batasi dimensi agar foto besar lebih ringan, tetap cukup jelas untuk identitas.
+                let scale = Math.min(1, 2000 / img.naturalWidth, 2000 / img.naturalHeight);
+                let blob = null;
+                const maxBytes = 1.8 * 1024 * 1024; // di bawah batas validasi server 2 MB
+
+                for (let attempt = 0; attempt < 8; attempt++) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+                    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    let quality = 0.86;
+                    for (let q = 0; q < 6; q++) {
+                        blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                        if (blob && blob.size <= maxBytes) break;
+                        quality -= 0.08;
+                    }
+                    if (blob && blob.size <= maxBytes) break;
+                    scale *= 0.82;
+                }
+
+                URL.revokeObjectURL(imageUrl);
+                if (!blob || blob.size > maxBytes) {
+                    throw new Error('Ukuran foto masih terlalu besar setelah dikompres.');
+                }
+
+                const compressedFile = new File([blob], (file.name.replace(/\.[^.]+$/, '') || 'foto-identitas') + '.jpg', {
+                    type: 'image/jpeg',
+                    lastModified: Date.now()
+                });
+                const previewUrl = URL.createObjectURL(blob);
+
+                // Pastikan file yang dikirim ke server adalah hasil kompresi, bukan file asli.
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(compressedFile);
+                this.$refs.fileInput.files = dataTransfer.files;
+
+                this.photoState.file = compressedFile;
+                this.photoState.previewUrl = previewUrl;
+                this.photoState.checked = true;
+                this.photoState.verified = true;
+                this.photoState.sizeLabel = (compressedFile.size / (1024 * 1024)).toFixed(2) + ' MB';
+                this.photoError = false;
+            } catch (error) {
+                console.error('Kompresi foto gagal:', error);
+                this.photoState.file = null;
+                this.photoState.previewUrl = null;
+                this.photoState.checked = true;
                 this.photoState.verified = false;
-                this.runQualityChecks();
-            };
-            reader.readAsDataURL(file);
+                this.$refs.fileInput.value = '';
+                alert('Foto gagal diproses. Silakan pilih foto JPG atau PNG lainnya.');
+            } finally {
+                this.photoState.processing = false;
+            }
         },
 
         removePhoto() {
+            if (this.photoState.previewUrl) URL.revokeObjectURL(this.photoState.previewUrl);
             this.photoState.file = null;
             this.photoState.previewUrl = null;
             this.photoState.checked = false;
             this.photoState.verified = false;
-            this.photoState.resolutionOk = false;
-            this.photoState.blurOk = false;
-            this.photoState.brightnessOk = false;
+            this.photoState.processing = false;
+            this.photoState.sizeLabel = '';
             this.$refs.fileInput.value = '';
-        },
-
-        runQualityChecks() {
-            const img = new Image();
-            img.onload = () => {
-                // 1. Resolution check (min 1280x720)
-                const minW = 1280, minH = 720;
-                this.photoState.resolutionOk = img.naturalWidth >= minW && img.naturalHeight >= minH;
-
-                // 2. Aspect ratio check (document-like: ~1.4 to ~1.6 or portrait)
-                const ratio = img.naturalWidth / img.naturalHeight;
-                this.photoState.aspectOk = ratio >= 0.6 && ratio <= 1.8;
-
-                // 3. Draw to canvas for pixel-level checks
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                // Use smaller canvas for performance
-                const scale = Math.min(200 / img.naturalWidth, 200 / img.naturalHeight);
-                canvas.width = Math.round(img.naturalWidth * scale);
-                canvas.height = Math.round(img.naturalHeight * scale);
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-
-                // 3a. Brightness check (average luminance)
-                let totalBrightness = 0;
-                const pixelCount = data.length / 4;
-                for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i], g = data[i+1], b = data[i+2];
-                    totalBrightness += 0.299 * r + 0.587 * g + 0.114 * b;
-                }
-                const avgBrightness = totalBrightness / pixelCount;
-
-                // Too dark if average < 30, too bright if > 240
-                this.photoState.brightnessOk = avgBrightness >= 30 && avgBrightness <= 240;
-
-                // 3b. Laplacian Variance (blur detection)
-                // Simplified: compute variance of pixel differences (approximate Laplacian)
-                let sum = 0, sumSq = 0, count = 0;
-                for (let y = 1; y < canvas.height - 1; y++) {
-                    for (let x = 1; x < canvas.width - 1; x++) {
-                        const idx = (y * canvas.width + x) * 4;
-                        // Approximate Laplacian: sum of differences from neighbors
-                        const center = 0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2];
-                        const top = 0.299 * data[((y-1) * canvas.width + x) * 4] + 0.587 * data[((y-1) * canvas.width + x) * 4 + 1] + 0.114 * data[((y-1) * canvas.width + x) * 4 + 2];
-                        const bottom = 0.299 * data[((y+1) * canvas.width + x) * 4] + 0.587 * data[((y+1) * canvas.width + x) * 4 + 1] + 0.114 * data[((y+1) * canvas.width + x) * 4 + 2];
-                        const left = 0.299 * data[(y * canvas.width + (x-1)) * 4] + 0.587 * data[(y * canvas.width + (x-1)) * 4 + 1] + 0.114 * data[(y * canvas.width + (x-1)) * 4 + 2];
-                        const right = 0.299 * data[(y * canvas.width + (x+1)) * 4] + 0.587 * data[(y * canvas.width + (x+1)) * 4 + 1] + 0.114 * data[(y * canvas.width + (x+1)) * 4 + 2];
-
-                        const laplacian = Math.abs(4 * center - top - bottom - left - right);
-                        sum += laplacian;
-                        sumSq += laplacian * laplacian;
-                        count++;
-                    }
-                }
-                const variance = (sumSq / count) - (sum / count) * (sum / count);
-
-                // Threshold: variance < ~100 means very blurry (tunable)
-                this.photoState.blurOk = variance >= this.LAPLACIAN_THRESHOLD;
-
-                // 4. Overall verification
-                this.photoState.checked = true;
-                this.photoState.verified = this.photoState.resolutionOk && this.photoState.blurOk && this.photoState.brightnessOk;
-            };
-            img.src = this.photoState.previewUrl;
         },
 
         watch: {

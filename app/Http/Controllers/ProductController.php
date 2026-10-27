@@ -19,69 +19,89 @@ use App\Models\RentalItem;
 
 class ProductController extends Controller
 {
-  public function index(Request $request)
-  {
-      $user = Auth::user();
+
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+    
         $query = Product::with(['category', 'branches', 'sizes'])
-            ->when(!$user->isSuperAdmin() && $user->branch_access_type === 'specific', function($q) use ($user) {
-                $q->whereHas('branches', fn($bq) => $bq->whereIn('branches.id', $user->accessible_branch_ids));
+            ->when(
+                !$user->isSuperAdmin() && $user->branch_access_type === 'specific',
+                function ($q) use ($user) {
+                    $q->whereHas('branches', function ($bq) use ($user) {
+                        $bq->whereIn('branches.id', $user->accessible_branch_ids);
+                    });
+                }
+            )
+            ->when($request->category, fn ($q) => $q->where('category_id', $request->category))
+            ->when($request->status, fn ($q) => $q->where('status', $request->status))
+            ->when(
+                $request->size,
+                fn ($q) => $q->whereHas('sizes', fn ($sq) => $sq->where('size', $request->size))
+            )
+            ->when(
+                $request->branch_id,
+                fn ($q) => $q->whereHas('branches', fn ($bq) => $bq->where('branches.id', $request->branch_id))
+            )
+            ->when($request->search, function ($q) use ($request) {
+                $q->where(function ($q2) use ($request) {
+                    $q2->where('name', 'like', "%{$request->search}%")
+                        ->orWhere('code', 'like', "%{$request->search}%")
+                        ->orWhere('color', 'like', "%{$request->search}%");
+                });
             })
-            ->when($request->category, fn($q) => $q->where('category_id', $request->category))
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->when($request->size, fn($q) => $q->whereHas('sizes', fn($sq) => $sq->where('size', $request->size)))
-          ->when($request->branch_id, fn($q) => $q->whereHas('branches', fn($bq) => $bq->where('branches.id', $request->branch_id)))
-          ->when(
-              $request->search,
-              fn($q) => $q->where(function ($q2) use ($request) {
-                  $q2->where('name', 'like', "%{$request->search}%")
-                      ->orWhere('code', 'like', "%{$request->search}%")
-                      ->orWhere('color', 'like', "%{$request->search}%");
-              }),
-          )
-          ->latest();
+            ->latest();
+    
+        $products = $query->paginate(16)->withQueryString();
+    
+        $categories = Category::where('is_active', true)->get();
+        $branches = Branch::where('is_active', true)->get();
+    
+        $availableSizes = ProductSize::select('size')
+            ->distinct()
+            ->orderByRaw("FIELD(size,'XS','S','M','L','XL','XXL','3XL','4XL','5XL','6XL','7XL')")
+            ->pluck('size')
+            ->toArray();
+        
+        $stats = [
+            'total' => (clone $query)->count(),
 
-       $products   = $query->paginate(16)->withQueryString();
-       $categories = Category::where('is_active', true)->get();
-       $branches = Branch::where('is_active', true)->get();
-       $availableSizes = ProductSize::select('size')->distinct()->orderByRaw("FIELD(size,'XS','S','M','L','XL','XXL','3XL','4XL','5XL','6XL','7XL')")->pluck('size')->toArray();
-       $maintenanceQuery = RentalItem::query()
-            ->where('maintenance_status', 'pending');
+            'available' => (clone $query)
+                ->where('status', 'available')
+                ->count(),
 
-        // Batasi berdasarkan akses cabang user
-        if (!$user->isSuperAdmin() && $user->branch_access_type === 'specific') {
-            $maintenanceQuery->whereHas('rental', function ($q) use ($user) {
-                $q->whereIn('branch_id', $user->accessible_branch_ids);
-            });
-        }
+            'rented_units' => (clone $query)
+                ->where('status', 'rented')
+                ->sum(\DB::raw('stock_total - stock_available')),
 
-        // Kalau filter cabang sedang dipilih
-        if ($request->branch_id) {
-            $maintenanceQuery->whereHas('rental', function ($q) use ($request) {
-                $q->where('branch_id', $request->branch_id);
-            });
-        }
-
-        $maintenanceUnits = (clone $maintenanceQuery)->sum('quantity');
-        $maintenanceItems = (clone $maintenanceQuery)
-    ->with(['product', 'rental.customer'])
-    ->latest()
-    ->get();
-      $stats = [
-         'total' => (clone $query)->count(),
-         'available' => (clone $query)->where('status', 'available')->count(),
-         'maintenance' => $maintenanceUnits,
-         'rented_units' => (clone $query)->where('status', 'rented')->sum(\DB::raw('stock_total - stock_available')),
-     ];
-
-     return view('products.index', compact(
-        'products',
-        'categories',
-        'branches',
-        'stats',
-        'availableSizes',
-        'maintenanceItems'
-    ));
- }
+            'maintenance' => RentalItem::query()
+                ->where('maintenance_status', 'pending')
+                ->whereHas('product', function ($q) use ($user) {
+                    $q->when(
+                        !$user->isSuperAdmin()
+                        && $user->branch_access_type === 'specific',
+                        function ($branchQuery) use ($user) {
+                            $branchQuery->whereHas('branches', function ($bq) use ($user) {
+                                $bq->whereIn(
+                                    'branches.id',
+                                    $user->accessible_branch_ids
+                                );
+                            });
+                        }
+                    );
+                })
+                ->count(),
+        ];
+    
+        return view('products.index', compact(
+            'products',
+            'categories',
+            'branches',
+            'stats',
+            'availableSizes'
+        ));
+    }
+    
 
     public function create()
     {
@@ -248,14 +268,43 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $user = Auth::user();
-        if (!$user || (!$user->isSuperAdmin() && !$user->isAdminToko() && !$user->isSales())) {
+    
+        if (!$user || (
+            !$user->isSuperAdmin() &&
+            !$user->isAdminToko() &&
+            !$user->isSales()
+        )) {
             abort(403, 'Unauthorized action.');
         }
+    
         $this->ensureBranchAccess($product);
-
-        $product->load(['sizes', 'category', 'branch', 'rentalItems' => fn($q) => $q->with('rental.customer')->latest()->limit(10)]);
-        return view('products.show', compact('product'));
+    
+        // Data produk dan riwayat penyewaan
+        $product->load([
+            'sizes',
+            'category',
+            'branch',
+            'rentalItems' => fn ($q) => $q
+                ->with('rental.customer')
+                ->latest()
+                ->limit(10),
+        ]);
+    
+        // Barang yang masih menunggu maintenance,
+        // khusus untuk produk yang sedang dibuka
+        $maintenanceItems = RentalItem::query()
+            ->where('product_id', $product->id)
+            ->where('maintenance_status', 'pending')
+            ->with(['rental.customer'])
+            ->latest()
+            ->get();
+    
+        return view('products.show', compact(
+            'product',
+            'maintenanceItems'
+        ));
     }
+    
 
     public function updateStock(Request $request, Product $product)
     {

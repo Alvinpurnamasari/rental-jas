@@ -31,5 +31,9 @@ class RentalReceiptController extends Controller
     {
         return $this->service->sendWhatsapp($rental);
     }
+    public function invoice(Rental $rental)
+{
+    return $this->service->downloadInvoicePdf($rental);
+}
 }
 

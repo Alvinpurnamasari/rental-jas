@@ -324,7 +324,23 @@
                             <i data-lucide="list" class="w-3.5 h-3.5" style="color:var(--primary)"></i>
                         </div>
                         <h2 class="font-semibold text-sm" style="color:var(--text-dark)">Detail Produk</h2>
+                        
                     </div>
+                    @if ($product->status === 'maintenance')
+                        <div class="card p-5 border border-red-200 bg-red-50">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                                    <i data-lucide="wrench" class="w-5 h-5 text-red-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-red-700">Produk dalam Maintenance</h3>
+                                    <p class="text-sm text-red-600">
+                                        Produk ini sedang dalam perbaikan dan belum tersedia untuk disewa.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
 
                     @php
                         $allSizes = $product->sizes->pluck('size')->implode(', ') ?: '—';
@@ -484,6 +500,146 @@
                     @endif
                     @endif
                 </div>
+                @if(isset($maintenanceItems) && $maintenanceItems->isNotEmpty())
+                <div class="ds-card overflow-hidden mb-6">
+                
+                    {{-- Header --}}
+                    <div class="px-5 py-4 border-b flex items-center justify-between"
+                         style="border-color:var(--border)">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center"
+                                 style="background:rgba(220,38,38,.10); color:#dc2626;">
+                                <i data-lucide="wrench" class="w-5 h-5"></i>
+                            </div>
+                
+                            <div>
+                                <h2 class="font-semibold" style="color:var(--text-dark)">
+                                    Barang Maintenance
+                                </h2>
+                                <p class="text-xs" style="color:var(--text-soft)">
+                                    Barang rusak yang belum selesai diperbaiki
+                                </p>
+                            </div>
+                        </div>
+                
+                        <span class="badge badge-red">
+                            {{ $maintenanceItems->sum('quantity') }} unit
+                        </span>
+                    </div>
+                
+                    {{-- Daftar --}}
+                    <div class="divide-y divide-slate-100">
+                
+                        @foreach($maintenanceItems as $item)
+                        <div class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 last:border-b-0">
+                
+                            <div class="flex items-center gap-4">
+                
+                                {{-- Foto --}}
+                                <div class="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0"
+                                     style="background:var(--secondary)">
+                
+                                    @if($item->product && $item->product->photo)
+                                        <img
+                                            src="{{ $item->product->photo_url }}"
+                                            class="w-full h-full object-cover"
+                                            alt="{{ $item->product_name }}"
+                                        >
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center">
+                                            <i data-lucide="shirt"
+                                               class="w-6 h-6"
+                                               style="color:var(--primary)">
+                                            </i>
+                                        </div>
+                                    @endif
+                
+                                </div>
+                
+                                {{-- Informasi --}}
+                                <div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                
+                                        <p class="font-semibold"
+                                           style="color:var(--text-dark)">
+                                            {{ $item->product_name ?? $item->product?->name ?? 'Produk' }}
+                                        </p>
+                
+                                        <span class="badge badge-red">
+                                            Maintenance
+                                        </span>
+                
+                                    </div>
+                
+                                    <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm"
+                                        style="color:var(--text-soft)">
+                
+                                        <span>
+                                            Ukuran:
+                                            <strong>{{ $item->product_size ?? '-' }}</strong>
+                                        </span>
+                
+                                        <span>
+                                            Jumlah:
+                                            <strong>{{ $item->quantity }}</strong>
+                                        </span>
+                
+                                        <span>
+                                            Kondisi:
+                                            <strong>
+                                                {{ ucfirst(str_replace('_', ' ', $item->return_condition ?? '-')) }}
+                                            </strong>
+                                        </span>
+                
+                                        <span>
+                                            Cabang:
+                                            <strong>
+                                                {{ $item->rental?->branch?->name
+                                                    ?? $item->product?->branches?->pluck('name')->join(', ')
+                                                    ?: '-' }}
+                                            </strong>
+                                        </span>
+                
+                                    </div>
+                
+                
+                                    @if($item->return_notes)
+                                    <p class="text-xs mt-2"
+                                       style="color:var(--text-soft)">
+                                        Catatan: {{ $item->return_notes }}
+                                    </p>
+                                    @endif
+                                </div>
+                            </div>
+                
+                            {{-- Tombol Selesai Maintenance --}}
+                            @auth
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
+                                    <form
+                                        action="{{ route('products.maintenance.complete', $item->id) }}"
+                                        method="POST"
+                                        onsubmit="return confirm('Apakah maintenance barang ini sudah selesai?')"
+                                    >
+                                        @csrf
+                                        @method('PATCH')
+                
+                                        <button
+                                            type="submit"
+                                            class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                                        >
+                                            <i data-lucide="circle-check" class="w-4 h-4"></i>
+                                            Selesai Maintenance
+                                        </button>
+                                    </form>
+                                @endif
+                            @endauth
+                
+                        </div>
+                        @endforeach
+                
+                    </div>
+                </div>
+                @endif
 
             </div>
         </div>

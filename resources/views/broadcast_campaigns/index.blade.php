@@ -27,20 +27,26 @@
 
 @section('content')
 <div class="space-y-6 broadcast-campaign-page">
-    <div class="flex items-center justify-between broadcast-page-header">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between broadcast-page-header">
         <div>
             <h2 class="text-lg font-extrabold text-slate-950">Daftar Campaign</h2>
-            <p class="mt-1 text-sm text-slate-500">Kelola dan pantau semua campaign broadcast WhatsApp.</p>
+            <p class="mt-1 text-sm text-slate-500">Kelola campaign In-App dan broadcast WhatsApp manual.</p>
         </div>
-        <a href="{{ route('broadcast-campaigns.create') }}" class="btn-primary px-4 py-2">
-            <i data-lucide="plus" class="h-4 w-4"></i>
-            Buat Campaign
-        </a>
+        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <a href="{{ route('broadcast-campaigns.templates.index') }}" class="btn-secondary w-full justify-center px-4 py-2 sm:w-auto">
+                <i data-lucide="files" class="h-4 w-4"></i>
+                Template Pesan
+            </a>
+            <a href="{{ route('broadcast-campaigns.create') }}" class="btn-primary w-full justify-center px-4 py-2 sm:w-auto">
+                <i data-lucide="plus" class="h-4 w-4"></i>
+                Buat Campaign
+            </a>
+        </div>
     </div>
 
     <div class="rounded-3xl border border-slate-200 bg-white shadow-card-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
+        <div class="broadcast-table-wrap overflow-x-auto">
+            <table class="broadcast-table w-full text-left text-sm">
                 <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                     <tr>
                         <th class="px-5 py-3 font-semibold">Nama Campaign</th>

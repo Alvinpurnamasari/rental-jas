@@ -18,6 +18,7 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\QrScanHistoryController;
+use App\Http\Controllers\BroadcastTemplateController;
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
@@ -76,10 +77,30 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
             Route::get('/', [BroadcastCampaignController::class, 'index'])->name('index');
             Route::get('/create', [BroadcastCampaignController::class, 'create'])->name('create');
             Route::post('/', [BroadcastCampaignController::class, 'store'])->name('store');
+           
+            
+Route::prefix('templates')->name('templates.')->group(function () {
+    Route::get('/', [BroadcastTemplateController::class, 'index'])->name('index');
+    Route::get('/create', [BroadcastTemplateController::class, 'create'])->name('create');
+    Route::post('/', [BroadcastTemplateController::class, 'store'])->name('store');
+    Route::get('/{template}/edit', [BroadcastTemplateController::class, 'edit'])->name('edit');
+    Route::put('/{template}', [BroadcastTemplateController::class, 'update'])->name('update');
+    Route::patch('/{template}/toggle', [BroadcastTemplateController::class, 'toggle'])->name('toggle');
+    Route::delete('/{template}', [BroadcastTemplateController::class, 'destroy'])->name('destroy');
+    Route::get('/archived', [BroadcastTemplateController::class, 'archived'])
+    ->name('archived');
+    Route::post('/{template}/restore', [BroadcastTemplateController::class, 'restore'])
+    ->name('restore');
+});
+
             Route::get('/{campaign}', [BroadcastCampaignController::class, 'show'])->name('show');
             Route::post('/{campaign}/send/{customer}', [BroadcastCampaignController::class, 'sendToCustomer'])->name('send-to-customer');
             Route::post('/{campaign}/message', [BroadcastCampaignController::class, 'updateMessage'])->name('update-message');
             Route::delete('/{campaign}', [BroadcastCampaignController::class, 'destroy'])->middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')->name('destroy');
+            Route::post(
+                '/{campaign}/customers/{customer}/confirm-sent',
+                [BroadcastCampaignController::class, 'confirmCustomerSent']
+            )->name('confirm-customer-sent');
         });
 
     // ─── CUSTOMER (MASTER DATA) ──────────────────────────────────────
@@ -133,6 +154,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->grou
         Route::get('/{rental}/receipt/pdf', [\App\Http\Controllers\RentalReceiptController::class, 'pdf'])->name('receipt.pdf');
         Route::get('/{rental}/receipt/qr', [\App\Http\Controllers\RentalReceiptController::class, 'qr'])->name('receipt.qr');
         Route::get('/{rental}/receipt/whatsapp', [\App\Http\Controllers\RentalReceiptController::class, 'whatsapp'])->name('receipt.whatsapp');
+        Route::get('/{rental}/invoice', [\App\Http\Controllers\RentalReceiptController::class, 'invoice'])->name('invoice');
 
         Route::middleware(\App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko')->group(function () {
             Route::patch('/{rental}/cancel', [RentalController::class, 'cancel'])->name('cancel');

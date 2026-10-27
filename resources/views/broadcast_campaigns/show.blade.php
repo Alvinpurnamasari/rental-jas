@@ -2,7 +2,7 @@
 
 @section('title', $campaign->name . ' - SewaJas')
 @section('page-title', $campaign->name)
-@section('subtitle', 'Detail campaign broadcast WhatsApp')
+@section('subtitle', 'Detail campaign broadcast')
 
 @section('content')
 <div class="space-y-6">
@@ -74,12 +74,13 @@
                     <h3 class="text-base font-extrabold text-slate-900">Daftar Penerima</h3>
                     <span class="badge badge-blue">{{ $campaign->logs->count() }} penerima</span>
                 </div>
+                <p class="mb-4 text-xs text-slate-500">Untuk WhatsApp, buka chat terlebih dahulu, kirim pesan dari WhatsApp, lalu tekan “Saya sudah mengirim” agar progress diperbarui.</p>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                             <tr>
                                 <th class="px-4 py-2 font-semibold">Nama</th>
-                                <th class="px-4 py-2 font-semibold">Phone</th>
+                                <th class="px-4 py-2 font-semibold">Telepon</th>
                                 <th class="px-4 py-2 font-semibold">Status</th>
                                 <th class="px-4 py-2 font-semibold">Aksi</th>
                             </tr>
@@ -90,10 +91,19 @@
                                         $recipient = $log->recipient;
                                         $isPending = $log->status === 'pending';
                                         $isCustomerRecipient = $log->recipient_type === 'customer';
-                                        $canSend = $isPending && $isCustomerRecipient && $recipient !== null;
+                                        $customerId = $isCustomerRecipient
+                                            ? ($recipient?->id ?? $log->recipient_id)
+                                            : null;
+
+                                        $canSend = $isPending
+                                            && $isCustomerRecipient
+                                            && $customerId !== null;
+
                                         $statusBadge = $isPending
                                             ? '<span class="badge bg-slate-100 text-slate-700">Belum Dikirim</span>'
                                             : '<span class="badge bg-green-100 text-green-700">Sudah Terkirim</span>';
+
+                                      
                                     @endphp
                                     <tr class="hover:bg-slate-50/60">
                                         <td class="px-4 py-2">
@@ -103,16 +113,37 @@
                                         <td class="px-4 py-2">{!! $statusBadge !!}</td>
                                         <td class="px-4 py-2">
                                             @if($canSend)
-                                                <form method="POST" action="{{ route('broadcast-campaigns.send-to-customer', [$campaign, $recipient]) }}" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="btn-primary px-3 py-1.5 text-xs">
-                                                        Kirim
-                                                    </button>
-                                                </form>
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <form method="POST"
+                                                          action="{{ route('broadcast-campaigns.send-to-customer', [$campaign, $customerId]) }}"
+                                                          class="inline"
+                                                          target="_blank">
+                                                        @csrf
+                                                        <button type="submit" class="btn-primary px-3 py-1.5 text-xs">
+                                                            <i data-lucide="message-circle" class="mr-1 inline h-3.5 w-3.5"></i>
+                                                            Buka WhatsApp
+                                                        </button>
+                                                    </form>
+                                        
+                                                    <form method="POST"
+                                                          action="{{ route('broadcast-campaigns.confirm-customer-sent', [$campaign, $customerId]) }}"
+                                                          class="inline"
+                                                          onsubmit="return confirm('Konfirmasi bahwa pesan WhatsApp sudah dikirim?')">
+                                                        @csrf
+                                                        <button type="submit" class="btn-secondary px-3 py-1.5 text-xs">
+                                                            <i data-lucide="check" class="mr-1 inline h-3.5 w-3.5"></i>
+                                                            Saya sudah mengirim
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             @elseif(!$isPending)
-                                                <span class="text-xs text-slate-400">Terkirim {{ optional($log->sent_at)->format('d M Y H:i') ?? '' }}</span>
+                                                <span class="text-xs text-slate-400">
+                                                    Terkirim {{ optional($log->sent_at)->format('d M Y H:i') ?? '' }}
+                                                </span>
                                             @else
-                                                <span class="text-xs text-slate-400">Belum Dikirim</span>
+                                                <span class="text-xs text-slate-400">
+                                                    Penerima tidak ditemukan atau bukan customer
+                                                </span>
                                             @endif
                                         </td>
                                     </tr>

@@ -5,8 +5,8 @@
 @section('subtitle', 'Buat campaign broadcast multi-channel')
 
 @section('content')
-<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
+<div class="w-full">
+    <section class="w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-8">
         <form method="POST" action="{{ route('broadcast-campaigns.store') }}" class="space-y-5" id="campaignForm">
             @csrf
             <div>
@@ -94,13 +94,8 @@
             <div id="whatsappFields">
                 <div>
                     <div class="mb-2 flex items-center justify-between gap-3">
-                        <label class="block text-sm font-bold text-slate-700">
-                            Template Pesan
-                        </label>
-                    
-                        <span class="text-xs font-semibold text-slate-400">
-                            Opsional
-                        </span>
+                        <label for="template_id" class="block text-sm font-bold text-slate-700">Template Pesan</label>
+                        <a href="{{ route('broadcast-campaigns.templates.index') }}" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Kelola Template</a>
                     </div>
                     <select name="template_id" id="template_id" class="form-input">
                         <option value="">Pilih template (opsional)</option>
@@ -164,27 +159,6 @@
         </form>
     </section>
 
-    <aside class="rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-6">
-        <h3 class="mb-4 text-sm font-extrabold text-slate-900">Panduan</h3>
-        <ul class="space-y-3 text-sm text-slate-600">
-            <li class="flex gap-2">
-                <i data-lucide="info" class="h-4 w-4 shrink-0 text-blue-600"></i>
-                <span>Pilih tipe penerima dahulu, lalu pilih target yang sesuai.</span>
-            </li>
-            <li class="flex gap-2">
-                <i data-lucide="info" class="h-4 w-4 shrink-0 text-blue-600"></i>
-                <span>Kombinasi <strong>customer</strong> dengan target <strong>sales</strong> tidak valid.</span>
-            </li>
-            <li class="flex gap-2">
-                <i data-lucide="info" class="h-4 w-4 shrink-0 text-blue-600"></i>
-                <span>Jika memilih template, pesan custom tidak perlu diisi.</span>
-            </li>
-            <li class="flex gap-2">
-                <i data-lucide="clock" class="h-4 w-4 shrink-0 text-orange-600"></i>
-                <span>Biarkan kosong untuk mengirim segera, atau isi jadwal untuk pengiriman tertunda.</span>
-            </li>
-        </ul>
-    </aside>
 </div>
 @endsection
 

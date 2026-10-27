@@ -31,6 +31,9 @@
             ['label' => 'Scan QR', 'route' => 'rentals.scan', 'icon' => 'scan-line', 'active' => ['rentals.scan', 'rentals.scan.show'], 'roles' => ['super_admin','admin_toko','sales']],
             ['label' => 'Broadcast', 'route' => 'broadcast-campaigns.index', 'icon' => 'send', 'active' => 'broadcast-campaigns.*', 'roles' => ['super_admin','admin_toko']],
         ],
+        'Analisis' => [
+            ['label' => 'Laporan Keuangan', 'route' => 'reports.revenue', 'icon' => 'chart-no-axes-combined', 'active' => ['reports.index', 'reports.revenue', 'reports.transactions', 'reports.returns', 'reports.stock', 'reports.customers', 'reports.payments', 'reports.export.*'], 'roles' => ['super_admin','admin_toko']],
+        ],
         'Master Data' => [
             ['label' => 'Pelanggan', 'route' => 'customers.index', 'icon' => 'phone', 'active' => 'customers.*', 'roles' => ['super_admin','admin_toko','sales']],
             ['label' => 'Produk', 'route' => 'products.index', 'icon' => 'package', 'active' => 'products.*', 'roles' => ['super_admin','admin_toko','sales']],
@@ -41,13 +44,13 @@
             ['label' => 'Pengguna', 'route' => 'users.index', 'icon' => 'users-round', 'active' => 'users.*', 'roles' => ['super_admin']],
             ['label' => 'Pengaturan', 'route' => 'settings.index', 'icon' => 'settings', 'active' => 'settings.*', 'roles' => ['super_admin']],
         ],
+        'Log' => [
+            ['label' => 'Log Keseluruhan', 'route' => 'reports.activity-log', 'icon' => 'scroll-text', 'active' => ['reports.activity-log', 'reports.activity-log.*'], 'roles' => ['super_admin', 'admin_toko', 'sales']],
+            ['label' => 'Riwayat Penyewaan', 'route' => 'rentals.index', 'icon' => 'archive', 'active' => 'rental-histories.*', 'roles' => ['super_admin','admin_toko','sales']],
+            ['label' => 'Laporan Barang Hilang', 'route' => 'reports.lost-items', 'icon' => 'package-x', 'active' => 'reports.lost-items', 'roles' => ['super_admin','admin_toko']],
+        ],
         'Akun' => [
             ['label' => 'Profil', 'route' => 'profile.edit', 'icon' => 'user-cog', 'active' => 'profile.*', 'roles' => ['super_admin','admin_toko','sales']],
-            ['label' => 'Keluar', 'route' => 'logout', 'icon' => 'log-out', 'active' => '', 'roles' => ['super_admin','admin_toko','sales']],
-        ],
-        'Log' => [
-            ['label' => 'Log Keseluruhan', 'route' => 'reports.activity-log', 'icon' => 'scroll-text', 'active' => 'reports.activity-log.*', 'roles' => ['super_admin','admin_toko']],
-            ['label' => 'Laporan Barang Hilang', 'route' => 'reports.lost-items', 'icon' => 'package-x', 'active' => 'reports.lost-items', 'roles' => ['super_admin','admin_toko']],
         ],
 
     ];

@@ -67,6 +67,27 @@ class RentalReceiptService
 
         return $pdf->download(($receipt['receipt_number'] ?? 'RECEIPT') . '.pdf');
     }
+    
+public function downloadInvoicePdf(Rental $rental)
+{
+    $rental->load([
+        'customer',
+        'createdBy',
+        'branch',
+        'items.product.category',
+        'payments.receivedBy',
+        'guarantees',
+        'returnRecord',
+    ]);
+
+    $receipt = $this->getReceiptPayload($rental);
+
+    $pdf = Pdf::loadView('rentals.invoice_pdf', compact('rental', 'receipt'))
+        ->setPaper('a4', 'portrait');
+
+    return $pdf->download('Invoice-' . $rental->invoice_number . '.pdf');
+}
+
 
     public function sendWhatsapp(Rental $rental)
     {
@@ -83,7 +104,7 @@ class RentalReceiptService
         );
 
         $waUrl = "https://wa.me/{$rental->customer->phone}?text={$message}";
-        return redirect()->away($waUrl);
+       '' return redirect()->away($waUrl);
     }
 
     public function ensureQrStored(Rental $rental): ?string

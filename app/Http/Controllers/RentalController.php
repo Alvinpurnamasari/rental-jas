@@ -261,6 +261,21 @@ class RentalController extends Controller
     {
         $user = Auth::user();
         $query = Rental::with(["customer", "items", "createdBy", "branch"]);
+        // Otomatis ubah status aktif menjadi terlambat
+// jika tanggal jatuh tempo sudah lewat.
+Rental::where('rental_status', 'active')
+->whereDate('return_due_date', '<', now()->toDateString())
+->update([
+    'rental_status' => Rental::STATUS_OVERDUE,
+]);
+
+// Kembalikan status terlambat menjadi aktif jika
+// tanggal jatuh tempo diperpanjang dan belum terlewati.
+Rental::where('rental_status', 'overdue')
+->whereDate('return_due_date', '>=', now()->toDateString())
+->update([
+    'rental_status' => Rental::STATUS_ACTIVE,
+]);
 
         if ($user->role === "sales") {
             $query->where("created_by", $user->id);
@@ -268,15 +283,22 @@ class RentalController extends Controller
             $query->whereIn("branch_id", $user->accessible_branch_ids);
         }
 
-        if ($request->has("status") && $request->status) {
-
+        
+        if ($request->filled('status')) {
             if ($request->status === 'overdue') {
                 $query->whereIn('rental_status', ['active', 'overdue'])
-                      ->whereDate('return_due_date', '<', now()->toDateString());
+                    ->whereDate('return_due_date', '<', now()->toDateString());
+
+            } elseif ($request->status === 'unpaid_fine') {
+                // Penyewaan sudah dikembalikan tetapi masih memiliki sisa denda.
+                $query->where('rental_status', 'returned')
+                    ->where('fine_amount', '>', 0);
+                
             } else {
                 $query->where('rental_status', $request->status);
             }
         }
+
 
         if ($request->has("search") && $request->search) {
             $search = $request->search;
@@ -673,17 +695,30 @@ class RentalController extends Controller
     public function processPayment(Request $request, Rental $rental)
     {
         try {
-            $this->rentalService->processPayment($rental, $request->validate([
-                "amount" => "required|numeric|min:0",
+            $this->rentalService->processPayment($rental, $request->validateWithBag('payment', [
+                "amount" => "required|numeric|min:0.01",
                 "method" => "required|string",
-                "payment_type" => ["nullable", "in:rental,late_fee,damage_fee,deposit"],
+                "payment_type" => ["nullable", "in:rental,late_fee,damage_fee"],
                 "reference_number" => "nullable|string",
                 "notes" => "nullable|string",
             ]));
             $rental->refresh();
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Pembayaran berhasil diproses!']);
+            }
+
             return back()->with("success", "Pembayaran berhasil diproses!");
         } catch (\RuntimeException $e) {
-            return back()->with("error", $e->getMessage());
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'errors' => ['payment' => [$e->getMessage()]],
+                ], 422);
+            }
+
+            return back()
+                ->withErrors(['payment' => $e->getMessage()], 'payment')
+                ->withInput();
         }
     }
 
@@ -913,6 +948,16 @@ class RentalController extends Controller
                 'message' => 'Rental ini sudah tidak dalam status Booking. Serah terima hanya dapat dilakukan untuk rental dengan status Booking.',
             ], 422);
         }
+        
+        $rental->refresh();
+
+        if ($rental->payment_status !== 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pembayaran sewa harus lunas sebelum serah terima dapat dilakukan.',
+            ], 422);
+        }
+
 
         $updateData = [
             'rental_status' => Rental::STATUS_ACTIVE,
@@ -1008,10 +1053,25 @@ class RentalController extends Controller
                     $updateData["returned_at"] = $now;
                     $updateData["actual_return_date"] = $now->toDateString();
                     $updateData["returned_by"] = auth()->id();
-                    $overdueDays = max(0, $now->diffInDays($rental->return_due_date, false) * -1);
-                    $updateData["overdue_days"] = $overdueDays;
-                    $lateFeePerDay = config("app.late_fee_per_day", 0);
-                    $updateData["late_fee"] = (float) round($overdueDays * $lateFeePerDay);
+                    $overdueDays = 0;
+
+                if ($rental->return_due_date) {
+                    $dueDate = \Carbon\Carbon::parse($rental->return_due_date)->startOfDay();
+                    $returnDate = $now->copy()->startOfDay();
+
+                    $overdueDays = max(
+                        0,
+                        (int) $dueDate->diffInDays($returnDate, false)
+                    );
+                }
+
+                $updateData["overdue_days"] = $overdueDays;
+                $updateData["late_fee"] = (float) ($overdueDays * 25000);
+                    $damageFees = (float) $rental->items()->sum("damage_fee");
+                    $updateData["fine_amount"] = $updateData["late_fee"] + $damageFees;
+                    $updateData["fine_status"] = $updateData["fine_amount"] > 0
+                        ? Rental::FINE_UNPAID
+                        : Rental::FINE_NONE;
 
                     foreach ($rental->items as $item) {
                         $product = Product::whereKey($item->product_id)->lockForUpdate()->firstOrFail();
