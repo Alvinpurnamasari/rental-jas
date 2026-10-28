@@ -159,6 +159,35 @@ class BroadcastTemplateController extends Controller
         abort_unless($request->user()->canAccessBranch((int) $branchId), 403);
     }
 
+
+    private function authorizeTemplateRestore(
+        Request $request,
+        BroadcastTemplate $template
+    ): void {
+        $user = $request->user();
+    
+        // Super Admin boleh memulihkan semua template.
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+    
+        // Admin cabang hanya boleh memulihkan template
+        // yang memang ditujukan untuk cabangnya.
+        $canRestoreBranchTemplate = $template->branch_id !== null
+            && (int) $template->branch_id === (int) $user->branch_id
+            && $user->canAccessBranch((int) $template->branch_id);
+    
+        // Template global dapat dipulihkan oleh admin cabang.
+        $canRestoreGlobalTemplate = $template->branch_id === null;
+    
+        abort_unless(
+            $canRestoreBranchTemplate || $canRestoreGlobalTemplate,
+            403
+        );
+    }
+    
+
+
     /**
      * @return array<int, string>
      */
@@ -189,9 +218,10 @@ class BroadcastTemplateController extends Controller
 
 public function restore(Request $request, int $template): RedirectResponse
 {
-    $archivedTemplate = BroadcastTemplate::onlyTrashed()->findOrFail($template);
+    $archivedTemplate = BroadcastTemplate::onlyTrashed()
+        ->findOrFail($template);
 
-    $this->authorizeTemplate($request, $archivedTemplate);
+    $this->authorizeTemplateRestore($request, $archivedTemplate);
 
     $archivedTemplate->restore();
 
@@ -199,4 +229,21 @@ public function restore(Request $request, int $template): RedirectResponse
         ->route('broadcast-campaigns.templates.archived')
         ->with('success', 'Template berhasil dipulihkan.');
 }
+
+public function forceDeleteTemplate(
+    Request $request,
+    int $template
+): RedirectResponse {
+    abort_unless($request->user()->isSuperAdmin(), 403);
+
+    $archivedTemplate = BroadcastTemplate::onlyTrashed()
+        ->findOrFail($template);
+
+    $archivedTemplate->forceDelete();
+
+    return redirect()
+        ->route('broadcast-campaigns.templates.archived')
+        ->with('success', 'Template berhasil dihapus permanen.');
+}
+
 }

@@ -159,11 +159,16 @@ class User extends Authenticatable
         return $this->morphMany(\App\Models\Notification::class, 'notifiable');
     }
 
+    
     public function getAvatarUrlAttribute(): string
     {
-        return $this->avatar
-            ? asset('storage/' . $this->avatar)
-            : 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=D6B98C&color=fff&size=128';
+        if (! $this->avatar) {
+            return 'https://ui-avatars.com/api/?name='
+                . urlencode($this->name ?? 'User')
+                . '&background=D6B98C&color=fff&size=128';
+        }
+
+        return asset('storage/' . ltrim($this->avatar, '/'));
     }
 
     public function canAccessBranch(int $branchId): bool

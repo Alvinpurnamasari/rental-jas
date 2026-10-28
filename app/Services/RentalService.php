@@ -377,34 +377,118 @@ class RentalService
             $user = Auth::user();
             $durationDays = (int) $data['duration_days'];
 
-            // ─── STEP 1: Collect branch IDs from all selected products (with lock) ───
-            $branchIds = collect($data['items'])
-                ->pluck('product_id')
-                ->map(fn($id) => Product::whereKey($id)->lockForUpdate()->valueOrFail('branch_id'))
-                ->unique();
+           
+            // ─── STEP 1: Resolve rental branch ───
+            $user = Auth::user();
 
-            // ─── STEP 2: Reject mixed-branch rentals ───
-            if ($branchIds->count() > 1) {
+            // Ambil ID produk yang dipilih untuk penyewaan.
+            $productIds = collect($data['items'])
+                ->pluck('product_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+
+            if ($productIds->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'items' => 'Semua produk harus berasal dari cabang yang sama.',
+                    'items' => 'Silakan pilih minimal satu produk.',
                 ]);
             }
 
-            // ─── STEP 3: Resolve rental branch ───
-            $branchId = $branchIds->first();
+            // Kunci data produk agar pemeriksaan stok tetap aman.
+            $products = Product::whereIn('id', $productIds)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            if ($products->count() !== $productIds->count()) {
+                throw ValidationException::withMessages([
+                    'items' => 'Ada produk yang tidak ditemukan.',
+                ]);
+            }
+
+            // ─── STEP 2: Determine the branch ───
+            // Untuk admin cabang, gunakan cabang yang sedang diakses.
+            // Untuk Super Admin, gunakan cabang produk jika semua produk
+            // memiliki cabang utama yang sama.
+            $branchId = null;
+
+            if (!$user->isSuperAdmin()) {
+                $accessibleBranchIds = collect($user->accessible_branch_ids ?? [])
+                    ->map(fn ($id) => (int) $id);
+
+                $candidateBranchIds = $products->first()
+                    ->branches()
+                    ->pluck('branches.id')
+                    ->map(fn ($id) => (int) $id)
+                    ->intersect($accessibleBranchIds)
+                    ->values();
+
+                if ($candidateBranchIds->count() === 1) {
+                    $branchId = $candidateBranchIds->first();
+                } elseif ($candidateBranchIds->count() > 1) {
+                    // Jika pengguna mengakses beberapa cabang, pilih cabang
+                    // yang sama-sama menyediakan seluruh produk.
+                    $commonBranchIds = null;
+
+                    foreach ($products as $product) {
+                        $availableBranchIds = $product->branches()
+                            ->pluck('branches.id')
+                            ->map(fn ($id) => (int) $id);
+
+                        $commonBranchIds = $commonBranchIds === null
+                            ? $availableBranchIds
+                            : $commonBranchIds->intersect($availableBranchIds);
+                    }
+
+                    $commonBranchIds = $commonBranchIds
+                        ->intersect($accessibleBranchIds)
+                        ->values();
+
+                    if ($commonBranchIds->count() === 1) {
+                        $branchId = $commonBranchIds->first();
+                    }
+                }
+            } else {
+                $mainBranchIds = $products->pluck('branch_id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values();
+
+                if ($mainBranchIds->count() === 1) {
+                    $branchId = $mainBranchIds->first();
+                }
+            }
 
             if ($branchId === null) {
                 throw ValidationException::withMessages([
-                    'items' => 'Tidak dapat menentukan cabang. Silakan pilih produk terlebih dahulu.',
+                    'items' => 'Cabang penyewaan tidak dapat ditentukan. Pastikan semua produk tersedia di cabang yang sama.',
                 ]);
             }
 
-            // ─── STEP 4: Verify non-super-admin users can access the branch ───
-            if (!$user->isSuperAdmin() && !$user->canAccessBranch((int) $branchId)) {
+            // ─── STEP 3: Verify every product is available at this branch ───
+            foreach ($products as $product) {
+                $availableAtBranch = $product->branches()
+                    ->where('branches.id', $branchId)
+                    ->exists();
+
+                if (!$availableAtBranch) {
+                    throw ValidationException::withMessages([
+                        'items' => "Produk {$product->name} tidak tersedia di cabang penyewaan yang dipilih.",
+                    ]);
+                }
+            }
+
+            // ─── STEP 4: Verify user access ───
+            if (
+                !$user->isSuperAdmin()
+                && !$user->canAccessBranch((int) $branchId)
+            ) {
                 throw ValidationException::withMessages([
-                    'items' => 'Produk bukan berasal dari cabang yang Anda akses.',
+                    'items' => 'Anda tidak memiliki akses ke cabang penyewaan ini.',
                 ]);
             }
+
 
             // Calculate subtotal (using locked products from step 1)
             $subtotal = 0;

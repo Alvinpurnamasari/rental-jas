@@ -531,9 +531,9 @@
                     <div class="divide-y divide-slate-100">
                 
                         @foreach($maintenanceItems as $item)
-                        <div class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 last:border-b-0">
+                        <div class="flex min-w-0 flex-col gap-4 border-b border-slate-100 p-4 sm:p-5 last:border-b-0 xl:flex-row xl:items-center xl:justify-between">
                 
-                            <div class="flex items-center gap-4">
+                            <div class="flex min-w-0 items-start gap-3 sm:gap-4">
                 
                                 {{-- Foto --}}
                                 <div class="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0"
@@ -612,27 +612,29 @@
                                 </div>
                             </div>
                 
+                            
                             {{-- Tombol Selesai Maintenance --}}
                             @auth
                                 @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                                     <form
                                         action="{{ route('products.maintenance.complete', $item->id) }}"
                                         method="POST"
-                                        onsubmit="return confirm('Apakah maintenance barang ini sudah selesai?')"
+                                        class="maintenance-complete-form"
                                     >
                                         @csrf
                                         @method('PATCH')
-                
+
                                         <button
                                             type="submit"
-                                            class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
                                         >
-                                            <i data-lucide="circle-check" class="w-4 h-4"></i>
+                                            <i data-lucide="circle-check" class="h-4 w-4"></i>
                                             Selesai Maintenance
                                         </button>
                                     </form>
                                 @endif
                             @endauth
+
                 
                         </div>
                         @endforeach
@@ -783,9 +785,124 @@
     </script>
     @endif
 
+    
+{{-- Modal Konfirmasi Selesai Maintenance --}}
+<div
+id="maintenanceCompleteModal"
+class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+role="dialog"
+aria-modal="true"
+aria-labelledby="maintenanceCompleteTitle"
+>
+<div class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+    <div class="flex items-start gap-3">
+        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <i data-lucide="check-circle" class="h-5 w-5"></i>
+        </div>
+
+        <div class="min-w-0">
+            <h3
+                id="maintenanceCompleteTitle"
+                class="text-base font-bold text-slate-900"
+            >
+                Selesai Maintenance?
+            </h3>
+
+            <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                Apakah maintenance barang ini sudah selesai?
+                Pastikan barang sudah siap digunakan kembali.
+            </p>
+        </div>
+    </div>
+
+    <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button
+            type="button"
+            id="cancelMaintenanceComplete"
+            class="btn-secondary inline-flex w-full items-center justify-center px-4 py-3 sm:w-auto"
+        >
+            Batal
+        </button>
+    
+        <button
+            type="button"
+            id="confirmMaintenanceComplete"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto"
+        >
+            <i data-lucide="check-circle" class="h-4 w-4 shrink-0"></i>
+            Ya, Selesai
+        </button>
+    </div>
+</div>
+</div>
+
     @push('scripts')
         <script>
             lucide.createIcons();
         </script>
+        
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    
+        const modal = document.getElementById('maintenanceCompleteModal');
+        const cancelButton = document.getElementById('cancelMaintenanceComplete');
+        const confirmButton = document.getElementById('confirmMaintenanceComplete');
+    
+        if (!modal || !cancelButton || !confirmButton) return;
+    
+        let selectedForm = null;
+    
+        document.querySelectorAll('.maintenance-complete-form').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+    
+                selectedForm = form;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+    
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+    
+                cancelButton.focus();
+            });
+        });
+    
+        function closeModal() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            selectedForm = null;
+            confirmButton.disabled = false;
+        }
+    
+        cancelButton.addEventListener('click', closeModal);
+    
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+    
+        document.addEventListener('keydown', function (event) {
+            if (
+                event.key === 'Escape' &&
+                !modal.classList.contains('hidden')
+            ) {
+                closeModal();
+            }
+        });
+    
+        confirmButton.addEventListener('click', function () {
+            if (!selectedForm) return;
+    
+            confirmButton.disabled = true;
+            selectedForm.submit();
+        });
+    });
+    </script>
+    
     @endpush
 @endsection

@@ -46,7 +46,7 @@
         ],
         'Log' => [
             ['label' => 'Log Keseluruhan', 'route' => 'reports.activity-log', 'icon' => 'scroll-text', 'active' => ['reports.activity-log', 'reports.activity-log.*'], 'roles' => ['super_admin', 'admin_toko', 'sales']],
-            ['label' => 'Riwayat Penyewaan', 'route' => 'rentals.index', 'icon' => 'archive', 'active' => 'rental-histories.*', 'roles' => ['super_admin','admin_toko','sales']],
+            ['label' => 'Riwayat Penyewaan', 'route' => 'rental-histories.index', 'icon' => 'archive', 'active' => 'rental-histories.*', 'roles' => ['super_admin','admin_toko','sales']],
             ['label' => 'Laporan Barang Hilang', 'route' => 'reports.lost-items', 'icon' => 'package-x', 'active' => 'reports.lost-items', 'roles' => ['super_admin','admin_toko']],
         ],
         'Akun' => [
@@ -125,7 +125,11 @@
             <!-- Nav -->
             <nav class="flex-1 overflow-y-auto px-4 py-5">
                 @foreach($navGroups as $group => $items)
-                    @php($visibleItems = collect($items)->filter(fn($item) => $canSee($item['roles'])))
+                    @php
+                    $visibleItems = collect($items)->filter(function ($item) use ($canSee) {
+                        return $canSee($item['roles']);
+                    });
+                @endphp
                     @if($visibleItems->isNotEmpty())
                         <div class="mb-6">
                             <div class="mb-3 px-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">{{ $group }}</div>
@@ -152,9 +156,10 @@
                                     @endif
                                 @endforeach
                             </div>
+                        </div>
                     @endif
                 @endforeach
-</nav>
+            </nav>
         </div>
     </aside>
 
@@ -216,42 +221,111 @@
                         @endif
                     </a>
 
-                    <!-- Avatar dropdown (pure UI) -->
-                    <div class="relative" x-data="{ open:false }">
-                        <button @click="open=!open" class="flex items-center gap-2 rounded-[16px] border border-slate-200 bg-white p-1.5 ds-transition hover:bg-blue-50">
-                            <div class="h-10 w-10 rounded-full flex items-center justify-center font-bold text-white" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-                                {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
-                            </div>
-                        </button>
+                   
+@php
+$user = auth()->user();
+$avatarUrl = $user?->avatar;
 
-                        <div x-show="open" @click.outside="open=false" x-transition
-                             class="absolute right-0 mt-3 w-64 rounded-[20px] border border-slate-200 bg-white shadow-xl p-3 ds-transition" style="display:none">
-                            <div class="px-2 py-2">
-                                <div class="text-sm font-bold text-slate-800">{{ auth()->user()->name }}</div>
-                                <div class="text-xs font-medium text-slate-500">{{ auth()->user()->email }}</div>
-                            </div>
-                            <div class="border-t my-2 border-slate-200"></div>
-                            <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-blue-50 ds-transition">
-                                <i data-lucide="user" class="h-4 w-4"></i>
-                                Profil Saya
-                            </a>
-@auth
-                            @if(auth()->user()->isSuperAdmin())
-                                <a href="{{ route('settings.index') }}" class="mt-1 flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-blue-50 ds-transition">
-                                    <i data-lucide="settings" class="h-4 w-4"></i>
-                                    Pengaturan
-                                </a>
-                            @endif
-                            @endauth
-                            <form id="logoutDropdownForm" method="POST" action="{{ route('logout') }}" class="mt-1">
-                                @csrf
-                                <button type="button" onclick="confirmAction('logoutDropdownForm', 'Keluar dari Sistem', 'Apakah Anda yakin ingin keluar dari web ini?', 'Ya, Keluar', '#dc2626')" class="w-full flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 ds-transition">
-                                    <i data-lucide="log-out" class="h-4 w-4"></i>
-                                    Keluar
-                                </button>
-                            </form>
-                        </div>
-                    </div>
+if (!empty($avatarUrl)) {
+    if (\Illuminate\Support\Str::startsWith($avatarUrl, ['http://', 'https://'])) {
+        // Foto dari URL eksternal
+        $avatarUrl = $avatarUrl;
+    } else {
+        // Foto yang tersimpan di Laravel storage
+        $avatarUrl = \Illuminate\Support\Facades\Storage::url($avatarUrl);
+    }
+}
+@endphp
+
+
+                    <!-- Avatar dropdown -->
+                    <div class="relative" x-data="{ open: false }">
+<button
+    type="button"
+    @click="open = !open"
+    class="flex items-center gap-2 rounded-[16px] border border-slate-200 bg-white p-1.5 ds-transition hover:bg-blue-50"
+    aria-label="Buka menu profil"
+>
+    <div
+        class="h-10 w-10 rounded-full flex items-center justify-center overflow-hidden font-bold text-white shrink-0"
+        style="background: linear-gradient(135deg, #2563eb, #1d4ed8);"
+    >
+        @if($avatarUrl)
+            <img
+                src="{{ $avatarUrl }}"
+                alt="Foto profil {{ $user->name }}"
+                class="h-full w-full rounded-full object-cover"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            >
+        @endif
+
+        <span
+            class="h-full w-full items-center justify-center"
+            style="display: {{ $avatarUrl ? 'none' : 'flex' }};"
+        >
+            {{ strtoupper(substr($user->name ?? 'US', 0, 2)) }}
+        </span>
+    </div>
+</button>
+
+<div
+    x-show="open"
+    @click.outside="open = false"
+    @keydown.escape.window="open = false"
+    x-transition
+    class="absolute right-0 mt-3 w-64 rounded-[20px] border border-slate-200 bg-white shadow-xl p-3 ds-transition z-50"
+    style="display: none;"
+>
+    <div class="px-2 py-2">
+        <div class="text-sm font-bold text-slate-800">
+            {{ $user->name }}
+        </div>
+
+        <div class="text-xs font-medium text-slate-500 break-all">
+            {{ $user->email }}
+        </div>
+    </div>
+
+    <div class="border-t my-2 border-slate-200"></div>
+
+    <a
+        href="{{ route('profile.edit') }}"
+        class="flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-blue-50 ds-transition"
+    >
+        <i data-lucide="user" class="h-4 w-4"></i>
+        Profil Saya
+    </a>
+
+    @if($user->isSuperAdmin())
+        <a
+            href="{{ route('settings.index') }}"
+            class="mt-1 flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-blue-50 ds-transition"
+        >
+            <i data-lucide="settings" class="h-4 w-4"></i>
+            Pengaturan
+        </a>
+    @endif
+
+    <form
+        id="logoutDropdownForm"
+        method="POST"
+        action="{{ route('logout') }}"
+        class="mt-1"
+    >
+        @csrf
+
+        <button
+            type="button"
+            onclick="confirmAction('logoutDropdownForm', 'Keluar dari Sistem', 'Apakah Anda yakin ingin keluar dari web ini?', 'Ya, Keluar', '#dc2626')"
+            class="w-full flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 ds-transition"
+        >
+            <i data-lucide="log-out" class="h-4 w-4"></i>
+            Keluar
+        </button>
+    </form>
+</div>
+</div>
+
                 </div>
             </div>
         </header>

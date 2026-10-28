@@ -19,6 +19,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\QrScanHistoryController;
 use App\Http\Controllers\BroadcastTemplateController;
+use App\Http\Controllers\RentalHistoryController;
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
@@ -91,6 +92,12 @@ Route::prefix('templates')->name('templates.')->group(function () {
     ->name('archived');
     Route::post('/{template}/restore', [BroadcastTemplateController::class, 'restore'])
     ->name('restore');
+    
+Route::delete(
+    '/{template}/force-delete',
+    [BroadcastTemplateController::class, 'forceDeleteTemplate']
+)->name('force-delete');
+
 });
 
             Route::get('/{campaign}', [BroadcastCampaignController::class, 'show'])->name('show');
@@ -294,3 +301,24 @@ Route::middleware('auth')->group(function () {
     Route::delete('/qr-scan-history', [QrScanHistoryController::class, 'destroyAll'])
         ->name('qr-scan-history.destroy-all');
 });
+
+// ─── RIWAYAT PENYEWAAN ─────────────────────────────
+Route::prefix('rental-histories')
+    ->name('rental-histories.')
+    ->middleware(
+        \App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko,sales'
+    )
+    ->group(function () {
+        Route::get('/', [RentalHistoryController::class, 'index'])
+            ->name('index');
+
+        Route::get('/{rentalHistory}/invoice', [
+            RentalHistoryController::class,
+            'downloadInvoice',
+        ])->name('invoice');
+
+        Route::get('/{rentalHistory}', [
+            RentalHistoryController::class,
+            'show',
+        ])->name('show');
+    });

@@ -106,31 +106,61 @@ tailwind.config = {
     <aside class="w-full lg:w-[276px] xl:w-[296px] flex-shrink-0">
         <div class="card bg-white rounded-2xl overflow-hidden border border-cream-300">
 
-            {{-- Profile header --}}
-            <div class="pt-6 pb-5 px-5 text-center" style="background:linear-gradient(180deg,#FAF7F2 0%,#FFFFFF 100%)">
-                <div class="avatar-ring w-fit mx-auto mb-3.5">
-                    <div class="w-[68px] h-[68px] rounded-full flex items-center justify-center"
-                         style="background:linear-gradient(135deg,#C27B3E,#3D3120)">
-                        <span class="text-white font-bold text-[22px] font-serif leading-none">
-                            {{ strtoupper(substr($user->name, 0, 2)) }}
-                        </span>
-                    </div>
-                </div>
-                <h2 class="font-serif text-[17px] font-semibold text-stone-900 leading-tight mb-0.5">
-                    {{ $user->name }}
-                </h2>
-                <p class="text-stone-400 text-[13px] mb-3.5">{{ $user->email }}</p>
-                @if ($user->branch)
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border"
-                      style="background:#FDF4EC; border-color:#F3C98A; color:#8A4F1A;">
-                    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                        <rect x="2" y="7" width="12" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M5 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-{{ optional($user->branch)->name ?? '-' }}
-                </span>
-                @endif
-            </div>
+            
+{{-- Profile header --}}
+<div class="pt-6 pb-5 px-5 text-center"
+style="background:linear-gradient(180deg,#FAF7F2 0%,#FFFFFF 100%)">
+
+@php
+   $avatarUrl = $user->avatar_url ?? null;
+
+   if (!empty($avatarUrl) && !\Illuminate\Support\Str::startsWith($avatarUrl, ['http://', 'https://'])) {
+       $avatarUrl = \Illuminate\Support\Facades\Storage::url($avatarUrl);
+   }
+@endphp
+
+<div class="avatar-ring w-fit mx-auto mb-3.5">
+   <div class="w-[68px] h-[68px] rounded-full flex items-center justify-center overflow-hidden"
+        style="background:linear-gradient(135deg,#C27B3E,#3D3120)">
+
+       @if (!empty($avatarUrl))
+           <img
+               src="{{ $avatarUrl }}"
+               alt="Foto profil {{ $user->name }}"
+               class="w-full h-full object-cover"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+           >
+       @endif
+
+       <span
+           class="text-white font-bold text-[22px] font-serif leading-none items-center justify-center {{ !empty($avatarUrl) ? 'hidden' : 'flex' }}"
+           style="{{ !empty($avatarUrl) ? 'display:none;' : '' }}"
+       >
+           {{ strtoupper(substr($user->name ?? 'US', 0, 2)) }}
+       </span>
+   </div>
+</div>
+
+<h2 class="font-serif text-[17px] font-semibold text-stone-900 leading-tight mb-0.5">
+   {{ $user->name }}
+</h2>
+
+<p class="text-stone-400 text-[13px] mb-3.5">
+   {{ $user->email }}
+</p>
+
+@if ($user->branch)
+   <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border"
+         style="background:#FDF4EC; border-color:#F3C98A; color:#8A4F1A;">
+       <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+           <rect x="2" y="7" width="12" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+           <path d="M5 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+       </svg>
+       {{ $user->branch->name ?? '-' }}
+   </span>
+@endif
+</div>
+
 
             <div class="border-t border-cream-200 mx-5"></div>
 
@@ -283,9 +313,11 @@ tailwind.config = {
                 </div>
 
                 <div class="px-5 sm:px-6 py-6">
-                    <form method="POST" action="{{ route('profile.update') }}" class="space-y-5">
-                        @csrf
-                        @method('PATCH')
+                    <form method="POST"
+                    action="{{ route('profile.update') }}"
+                    enctype="multipart/form-data">
+                  @csrf
+                  @method('PATCH')
 
                         {{-- Nama --}}
                         <div>
@@ -332,6 +364,69 @@ tailwind.config = {
                                 <div class="invalid-msg">{{ $message }}</div>
                             @enderror
                         </div>
+
+ 
+{{-- Foto Profil --}}
+<div class="mt-5 mb-6">
+    <label class="block text-[13px] font-semibold text-stone-600 mb-3">
+        Foto Profil
+    </label>
+
+    <div class="flex flex-wrap items-center gap-3">
+        {{-- Tombol upload --}}
+        <label
+            for="avatar"
+            class="inline-flex cursor-pointer items-center gap-2
+                   rounded-lg border border-blue-200 bg-blue-50
+                   px-4 py-2.5 text-sm font-semibold text-blue-600
+                   transition hover:bg-blue-100"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                 stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 16V4m0 0L7 9m5-5 5 5M5 15v4a1 1 0 001 1h12a1 1 0 001-1v-4"/>
+            </svg>
+            Klik untuk upload foto profil
+        </label>
+
+        <input
+            id="avatar"
+            name="avatar"
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp"
+            class="hidden"
+        >
+
+        {{-- Tombol hapus foto --}}
+        
+        <button
+            type="button"
+            onclick="openDeleteAvatarModal()"
+            class="inline-flex items-center gap-1.5 rounded-lg
+                border border-red-200 bg-red-50 px-3 py-2.5
+                text-sm font-medium text-red-600
+                transition hover:bg-red-100"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M6 7h12m-10 0V5h8v2m-9 0 1 13h8l1-13M10 11v5m4-5v5"/>
+            </svg>
+            Hapus Foto Profil
+        </button>
+
+    </div>
+
+    <p class="mt-2 text-xs text-gray-500">
+        JPG, PNG, atau WEBP. Maksimal 2 MB.
+    </p>
+
+    @error('avatar')
+        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+    @enderror
+</div>
 
                         {{-- Info notice --}}
                         <div class="flex items-start gap-3 px-4 py-3 rounded-xl border border-cream-300" style="background:#FAF7F2;">
@@ -767,4 +862,83 @@ document.getElementById('deleteModal').addEventListener('click', function (e) {
     if (e.target === this) closeDeleteModal();
 });
 </script>
+
+{{-- Modal konfirmasi hapus foto profil --}}
+<div id="deleteAvatarModal"
+     class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 p-4">
+
+    <div class="w-full max-w-md rounded-xl bg-white p-7 text-center shadow-2xl">
+
+        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center
+                    rounded-full border-2 border-orange-300 text-orange-400">
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 class="h-10 w-10" fill="none" viewBox="0 0 24 24"
+                 stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 8v4m0 4h.01M10.3 3.9 2.8 17a2 2 0 001.7 3h15a2 2 0 001.7-3l-7.5-13.1a2 2 0 00-3.4 0z"/>
+            </svg>
+        </div>
+
+        <h2 class="mb-3 text-2xl font-semibold text-stone-700">
+            Hapus Foto Profil
+        </h2>
+
+        <p class="mb-6 text-sm leading-relaxed text-stone-500">
+            Apakah Anda yakin ingin menghapus foto profil?
+            Foto yang dihapus tidak dapat dipulihkan.
+        </p>
+
+        <div class="flex justify-center gap-3">
+            <button type="button"
+                    onclick="closeDeleteAvatarModal()"
+                    class="rounded-md bg-slate-500 px-5 py-2.5
+                           text-sm font-semibold text-white hover:bg-slate-600">
+                Batal
+            </button>
+
+            <button type="button"
+                    onclick="confirmDeleteAvatar()"
+                    class="rounded-md bg-red-600 px-5 py-2.5
+                           text-sm font-semibold text-white hover:bg-red-700">
+                Ya, Hapus
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openDeleteAvatarModal() {
+        const modal = document.getElementById('deleteAvatarModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeDeleteAvatarModal() {
+        const modal = document.getElementById('deleteAvatarModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function confirmDeleteAvatar() {
+        const form = document.querySelector('input[name="avatar"]')
+            ?.closest('form');
+
+        if (!form) return;
+
+        let deleteInput = form.querySelector(
+            'input[name="delete_avatar"][type="hidden"]'
+        );
+
+        if (!deleteInput) {
+            deleteInput = document.createElement('input');
+            deleteInput.type = 'hidden';
+            deleteInput.name = 'delete_avatar';
+            deleteInput.value = '1';
+            form.appendChild(deleteInput);
+        }
+
+        form.requestSubmit();
+    }
+</script>
+
 @endpush
