@@ -779,49 +779,82 @@ class ReportController extends Controller
     // LAPORAN LOG AKTIVITAS
     // =========================================================================
 
+
     public function activityLog(Request $request)
     {
         $user = Auth::user();
+        $isSales = $user->role === 'sales';
+    
         $branchIds = $this->activityLogBranchIds($request);
+    
         $branches = $user->isSuperAdmin()
             ? Branch::orderBy('name')->get()
-            : Branch::whereIn('id', $branchIds ?? [])->orderBy('name')->get();
+            : Branch::whereIn('id', $branchIds ?? [])
+                ->orderBy('name')
+                ->get();
+    
         $selectedBranchId = $request->filled('branch_id')
             ? (int) $request->input('branch_id')
             : (count($branchIds ?? []) === 1 ? $branchIds[0] : null);
-        $shared = compact('branches', 'selectedBranchId') + ['isSuperAdmin' => $user->isSuperAdmin()];
-
+    
+        $shared = compact('branches', 'selectedBranchId') + [
+            'isSuperAdmin' => $user->isSuperAdmin(),
+        ];
+    
         $filter = $this->resolveActivityFilter($request);
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
         $period = $request->input('period');
         $search = $request->input('search');
-
+    
+        // Query utama: daftar aktivitas
         $query = ActivityLog::with(['user', 'branch', 'rental.branch']);
+    
         $query = $this->applyActivityLogBranchScope($query, $branchIds);
+    
+        // Sales hanya boleh melihat aktivitas miliknya sendiri.
+        if ($isSales) {
+            $query->where('user_id', $user->id);
+        }
+    
         $query = $this->applyActivityLogFilters($query, null, $filter);
-
+    
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
-                  ->orWhere('model_type', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%"));
+                    ->orWhere('model_type', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($u) use ($search) {
+                        $u->where('name', 'like', "%{$search}%");
+                    });
             });
         }
-
+    
         $query = $this->applyPeriodFilter($query, $request);
-
-        $logs = $query->latest('created_at')->paginate(50)->withQueryString();
-
+    
+        $logs = $query->latest('created_at')
+            ->paginate(50)
+            ->withQueryString();
+    
+        // Query pilihan jenis aktivitas
         $actionQuery = ActivityLog::query();
+    
         $this->applyActivityLogBranchScope($actionQuery, $branchIds);
+    
+        if ($isSales) {
+            $actionQuery->where('user_id', $user->id);
+        }
+    
         $allActions = $actionQuery->select('action')
             ->distinct()
             ->orderBy('action')
             ->pluck('action');
-
-        $actionOptions = $this->buildActionOptions($allActions, $filter['tab'], $filter['actionMap']);
-
+    
+        $actionOptions = $this->buildActionOptions(
+            $allActions,
+            $filter['tab'],
+            $filter['actionMap']
+        );
+    
         $tabs = [
             'all' => 'Semua Aktivitas',
             'rental' => 'Penyewaan',
@@ -830,41 +863,48 @@ class ReportController extends Controller
             'product' => 'Produk',
             'user' => 'Pengguna',
         ];
-
+    
+        // Query ringkasan statistik
         $baseQuery = ActivityLog::query();
-        $baseQuery = $this->applyActivityLogBranchScope($baseQuery, $branchIds);
-        $baseQuery = $this->applyActivityLogFilters($baseQuery, null, $filter);
+    
+        $baseQuery = $this->applyActivityLogBranchScope(
+            $baseQuery,
+            $branchIds
+        );
+    
+        if ($isSales) {
+            $baseQuery->where('user_id', $user->id);
+        }
+    
+        $baseQuery = $this->applyActivityLogFilters(
+            $baseQuery,
+            null,
+            $filter
+        );
+    
         if ($search) {
             $baseQuery->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
-                  ->orWhere('model_type', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%"));
+                    ->orWhere('model_type', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($u) use ($search) {
+                        $u->where('name', 'like', "%{$search}%");
+                    });
             });
         }
+    
         $baseQuery = $this->applyPeriodFilter($baseQuery, $request);
-
+    
         $summaryTotal = (clone $baseQuery)->count();
-        $summaryToday = (clone $baseQuery)->whereDate('created_at', today())->count();
-        $summaryActiveUsers = (clone $baseQuery)->distinct('user_id')->count('user_id');
-
-        if ($request->ajax()) {
-            return view('reports.partials.activity-log-content', array_merge($shared, [
-                'logs' => $logs,
-                'dateFrom' => $dateFrom,
-                'dateTo' => $dateTo,
-                'period' => $period,
-                'search' => $search,
-                'action' => $filter['action'],
-                'tab' => $filter['tab'],
-                'actionOptions' => $actionOptions,
-                'tabs' => $tabs,
-                'summaryTotal' => $summaryTotal,
-                'summaryToday' => $summaryToday,
-                'summaryActiveUsers' => $summaryActiveUsers,
-            ]))->render();
-        }
-
-        return view('reports.activity-log', array_merge($shared, [
+    
+        $summaryToday = (clone $baseQuery)
+            ->whereDate('created_at', today())
+            ->count();
+    
+        $summaryActiveUsers = (clone $baseQuery)
+            ->distinct('user_id')
+            ->count('user_id');
+    
+        $viewData = array_merge($shared, [
             'logs' => $logs,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
@@ -877,8 +917,18 @@ class ReportController extends Controller
             'summaryTotal' => $summaryTotal,
             'summaryToday' => $summaryToday,
             'summaryActiveUsers' => $summaryActiveUsers,
-        ]));
+        ]);
+    
+        if ($request->ajax()) {
+            return view(
+                'reports.partials.activity-log-content',
+                $viewData
+            )->render();
+        }
+    
+        return view('reports.activity-log', $viewData);
     }
+    
 
     public function exportActivityLog(Request $request)
     {

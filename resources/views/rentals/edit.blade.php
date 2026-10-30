@@ -3,36 +3,6 @@
 @section('title', 'Edit Penyewaan')
 @section('page-title', 'Edit Penyewaan')
 
-@push('styles')
-<style>
-    @media (max-width: 639px) {
-        .rental-edit-actions {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-            gap: .625rem;
-            align-items: stretch;
-        }
-        .rental-edit-actions > a,
-        .rental-edit-actions > button {
-            min-width: 0;
-            width: 100%;
-            justify-content: center;
-            padding-left: .75rem;
-            padding-right: .75rem;
-            white-space: normal;
-            text-align: center;
-        }
-        .rental-edit-actions > button span {
-            min-width: 0;
-        }
-        .rental-edit-actions > button span.flex {
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-    }
-</style>
-@endpush
-
 @section('content')
 <div class="max-w-4xl mx-auto space-y-5">
     <div class="flex items-center gap-3 mb-5">
@@ -70,21 +40,22 @@
                         <input type="text"
                             x-model="customerSearch"
                             @focus="customerDropdownOpen = true"
-                            @input="selectedCustomer = null"
+                            @click="customerDropdownOpen = true"
+                            @input="selectedCustomer = null; customerDropdownOpen = true"
                             class="form-input"
-                            placeholder="Ketik nama atau nomor HP pelanggan..."
+                            placeholder="Pilih pelanggan atau ketik untuk mencari..."
                             autocomplete="off"
                             :disabled="formLocked"
                             title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}"
                         >
                         <input type="hidden" name="customer_id" :value="selectedCustomer?.id ?? '{{ $rental->customer_id }}'" required>
 
-                        <div x-show="customerDropdownOpen && customerSearch"
+                        <div x-show="customerDropdownOpen"
                              x-transition
                              class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-auto"
                              style="display: none;">
                             <template x-if="filteredCustomers.length > 0">
-                                <template x-for="customer in filteredCustomers" :key="customer.id">
+                                <template x-for="customer in dropdownCustomers" :key="customer.id">
                                     <div @click="selectCustomer(customer)"
                                          class="px-4 py-2.5 cursor-pointer hover:bg-blue-50 text-sm flex items-center justify-between"
                                          :class="selectedCustomer?.id === customer.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'">
@@ -93,6 +64,16 @@
                                     </div>
                                 </template>
                             </template>
+
+                            <div x-show="filteredCustomers.length > dropdownCustomers.length"
+                                 class="px-4 py-2 text-xs text-slate-400 border-t border-slate-100 bg-slate-50/60 text-center">
+                                Menampilkan <span x-text="dropdownCustomers.length"></span> dari <span x-text="filteredCustomers.length"></span> pelanggan — ketik untuk mempersempit
+                            </div>
+
+                            <div x-show="!customerSearch && filteredCustomers.length === 0"
+                                 class="px-4 py-3 text-sm text-slate-400">
+                                Belum ada pelanggan terdaftar.
+                            </div>
 
                             <div x-show="customerSearch && filteredCustomers.length === 0"
                                  @click="openAddModal()"
@@ -135,14 +116,6 @@
                                         >
                                     </div>
                                 </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1.5 text-slate-700">Alamat</label>
-                                <textarea x-model="newCustomer.address" class="form-input" rows="2" placeholder="Alamat (opsional)"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1.5 text-slate-700">Catatan</label>
-                                <textarea x-model="newCustomer.notes" class="form-input" rows="2" placeholder="Catatan (opsional)"></textarea>
-                            </div>
                             <div class="flex items-center justify-end gap-3 pt-2">
                                 <button type="button" @click="showAddModal = false" class="btn-secondary px-5 py-2.5" :disabled="addingCustomer">Batal</button>
                                 <button type="submit" class="btn-primary px-5 py-2.5" :disabled="addingCustomer">
@@ -171,10 +144,10 @@
                     <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Durasi (Hari) <span class="text-red-400">*</span></label>
                     <input type="number" name="duration_days" value="{{ old('duration_days', $rental->duration_days) }}" min="1" class="form-input" required>
                 </div>
-        </div>
+            </div>
 
         <!-- Produk -->
-        <div class="card p-6">
+        <div class="border-t border-slate-200 mt-6 pt-6">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="package" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Produk
@@ -230,8 +203,50 @@
             </button>
         </div>
 
+        <!-- Diskon & Status & Catatan -->
+            <div class="border-t border-slate-200 mt-6 pt-6">
+            <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
+                <i data-lucide="file-text" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
+                Diskon & Status & Catatan
+            </h3>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Diskon (Rp)</label>
+                    <input type="number" name="discount" value="{{ old('discount', $rental->discount) }}" min="0" class="form-input">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Status</label>
+                    <select name="rental_status" class="form-input">
+                        @foreach(['waiting'=>'Menunggu Pembayaran','active'=>'Disewa','overdue'=>'Terlambat','returned'=>'Dikembalikan','cancelled'=>'Dibatalkan'] as $key=>$label)
+                            <option value="{{ $key }}" {{ (string)$rental->rental_status === (string)$key ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Payment Status</label>
+                    <select name="payment_status" class="form-input">
+                        @foreach(['unpaid'=>'Belum Bayar','partial'=>'Sebagian','paid'=>'Lunas'] as $key=>$label)
+                            <option value="{{ $key }}" {{ (string)$rental->payment_status === (string)$key ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Deposit</label>
+                    <input type="number" name="deposit" value="{{ old('deposit', $rental->deposit ?? 0) }}" min="0" class="form-input">
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Catatan</label>
+                    <textarea name="notes" class="form-input" rows="3">{{ old('notes', $rental->notes) }}</textarea>
+                </div>
+            </div>
+            </div>
+
         <!-- Jaminan & Pembayaran -->
-        <div class="card p-6">
+        <div class="border-t border-slate-200 mt-6 pt-6">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="file-text" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Jaminan & Pembayaran
@@ -318,7 +333,8 @@
                                 <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                 <p class="text-sm font-medium">Seret &amp; lepas foto di sini</p>
                                 <p class="text-xs">atau klik untuk memilih file</p>
-                                <p class="text-xs text-slate-300">JPG/PNG, maks 2MB</p>
+                                <p x-show="photoState.compressing" class="text-xs font-semibold text-blue-500">Mengompres foto…</p>
+                                <p x-show="!photoState.compressing" class="text-xs text-slate-300">JPG/PNG, maks 2MB — foto besar otomatis dikompres</p>
                             </div>
                         </template>
                         <template x-if="photoState.file">
@@ -381,70 +397,23 @@
                 @endif
             </div>
 
-        <!-- Diskon & Status & Catatan (existing) -->
-        <div class="card p-6">
-            <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
-                <i data-lucide="file-text" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
-                Diskon & Status & Catatan
-            </h3>
-            <div class="grid sm:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Diskon (Rp)</label>
-                    <input type="number" name="discount" value="{{ old('discount', $rental->discount) }}" min="0" class="form-input">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Status</label>
-                    <select name="rental_status" class="form-input">
-                        @foreach(['waiting'=>'Menunggu Pembayaran','active'=>'Disewa','overdue'=>'Terlambat','returned'=>'Dikembalikan','cancelled'=>'Dibatalkan'] as $key=>$label)
-                            <option value="{{ $key }}" {{ (string)$rental->rental_status === (string)$key ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Payment Status</label>
-                    <select name="payment_status" class="form-input">
-                        @foreach(['unpaid'=>'Belum Bayar','partial'=>'Sebagian','paid'=>'Lunas'] as $key=>$label)
-                            <option value="{{ $key }}" {{ (string)$rental->payment_status === (string)$key ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="sm:col-span-2">
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Deposit</label>
-                    <input type="number" name="deposit" value="{{ old('deposit', $rental->deposit ?? 0) }}" min="0" class="form-input">
-                </div>
-
-                <div class="sm:col-span-2">
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Catatan</label>
-                    <textarea name="notes" class="form-input" rows="3">{{ old('notes', $rental->notes) }}</textarea>
-                </div>
+        </div>
         </div>
 
         <!-- Submit -->
-        <div class="rental-edit-actions flex items-center justify-between">
-            <a href="{{ route('rentals.show', $rental) }}" class="btn-secondary">
+        <div class="flex items-center justify-between mt-6 pt-5 border-t border-slate-200 gap-4">
+            <a href="{{ route('rentals.show', $rental) }}"
+               class="btn-secondary inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl whitespace-nowrap">
                 <i data-lucide="x" class="w-4 h-4"></i>
-                Batal
+                <span>Batal</span>
             </a>
             <button type="submit"
                     :disabled="submitting || (photoState.file && !photoState.verified)"
-                    :class="{
-                        'opacity-60 pointer-events-none': submitting || (photoState.file && !photoState.verified),
-                    }"
-                    class="btn-primary px-8">
-                <span x-show="!submitting" class="flex items-center gap-2">
-                    <i data-lucide="save" class="w-4 h-4"></i>
-                    Simpan Perubahan
-                </span>
-                <span x-show="submitting" class="flex items-center gap-2">
-                    <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    Menyimpan...
-                </span>
+                    :class="{ 'opacity-60 pointer-events-none': submitting || (photoState.file && !photoState.verified) }"
+                    class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl whitespace-nowrap text-white font-semibold shadow-sm"
+                    style="background-color: #2563eb; min-width: 190px; width: auto; flex: 0 0 auto; font-size: 14px; line-height: 1.25rem;">
+                <i data-lucide="save" class="w-4 h-4 shrink-0"></i>
+                <span style="display: inline !important; visibility: visible !important; opacity: 1 !important; color: #ffffff !important; width: auto !important; min-width: max-content !important; flex: 0 0 auto !important;">Simpan Perubahan</span>
             </button>
         </div>
     </form>
@@ -471,6 +440,7 @@
         photoState: {
             file: null,
             previewUrl: null,
+            compressing: false,
             checked: false,
             verified: false,
             resolutionOk: false,
@@ -485,7 +455,7 @@
         showAddModal: false,
         showPreview: false,
         addingCustomer: false,
-        newCustomer: { name: '', phone: '', address: '', notes: '' },
+        newCustomer: { name: '', phone: '' },
         customers: @json($customers->map(fn($c) => ['id' => $c->id, 'name' => $c->name, 'phone' => $c->phone])),
         guaranteeType: '{{ $guarantee?->type ?? '' }}',
         guaranteeDeposit: '{{ $guarantee?->deposit_amount ?? '' }}',
@@ -560,11 +530,21 @@
         },
 
         get filteredCustomers() {
+            // Prefill "Nama - HP" pelanggan terpilih: saat dropdown dibuka tampilkan
+            // daftar lengkap, bukan "tidak ada hasil" (kueri prefill tak cocok nama mentah)
+            if (this.selectedCustomer
+                && this.customerSearch === this.selectedCustomer.name + ' - ' + this.selectedCustomer.phone) {
+                return this.customers;
+            }
             if (!this.customerSearch) return this.customers;
             const q = this.customerSearch.toLowerCase();
             return this.customers.filter(c =>
                 c.name.toLowerCase().includes(q) || c.phone.includes(q)
             );
+        },
+
+        get dropdownCustomers() {
+            return this.filteredCustomers.slice(0, 50);
         },
 
         selectCustomer(customer) {
@@ -576,8 +556,6 @@
         openAddModal() {
             this.newCustomer.name = this.customerSearch;
             this.newCustomer.phone = '';
-            this.newCustomer.address = '';
-            this.newCustomer.notes = '';
             this.showAddModal = true;
         },
 
@@ -707,15 +685,34 @@
             if (file) this.processFile(file);
         },
 
-        processFile(file) {
+        async processFile(file) {
             if (!['image/jpeg', 'image/png'].includes(file.type)) {
                 alert('Format tidak didukung. Gunakan JPG atau PNG.');
                 return;
             }
+
+            // Kompresi di browser: foto HP 4-8MB di-resize/mampatkan dulu supaya
+            // aman melewati limit upload 2MB tanpa menolak file (lihat compressedUpload.js).
+            this.photoState.compressing = true;
+            try {
+                file = await window.compressImageFile(file);
+            } catch (e) {
+                console.error('Kompresi gambar gagal, memakai file asli:', e);
+            } finally {
+                this.photoState.compressing = false;
+            }
+
+            // Guard terakhir (jarang terjadi setelah kompresi)
             if (file.size > 2 * 1024 * 1024) {
-                alert('Ukuran file maksimal 2MB.');
+                alert('Ukuran file masih terlalu besar setelah kompresi. Coba foto ulang.');
                 return;
             }
+
+            // Sinkron ke <input type="file"> supaya file ikut terkirim saat submit,
+            // termasuk jalur drag & drop yang sebelumnya tidak terkirim.
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            this.$refs.fileInput.files = dt.files;
 
             const reader = new FileReader();
             reader.onload = (e) => {

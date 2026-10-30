@@ -135,8 +135,10 @@ class RentalService
             $fineStatus = Rental::FINE_UNPAID;
         }
 
+        // paid_amount merepresentasikan tagihan sewa yang terbayar, bukan uang lebih.
+        // Nominal pembayaran asli tetap tersimpan di riwayat agar kembalian bisa dihitung.
         $rental->update([
-            'paid_amount' => $totalPaidForRental,
+            'paid_amount' => min($rentalFee, max(0, $totalPaidForRental)),
             'payment_status' => $paymentStatus,
             'remaining_amount' => $remainingRental,
             'fine_paid_amount' => $finePaidAmount,
@@ -406,57 +408,55 @@ class RentalService
                 ]);
             }
 
+            
             // ─── STEP 2: Determine the branch ───
-            // Untuk admin cabang, gunakan cabang yang sedang diakses.
-            // Untuk Super Admin, gunakan cabang produk jika semua produk
-            // memiliki cabang utama yang sama.
             $branchId = null;
 
+            // Ambil cabang yang menyediakan seluruh produk terpilih.
+            $commonBranchIds = null;
+
+            foreach ($products as $product) {
+                $availableBranchIds = $product->branches()
+                    ->pluck('branches.id')
+                    ->map(fn ($id) => (int) $id);
+
+                $commonBranchIds = $commonBranchIds === null
+                    ? $availableBranchIds
+                    : $commonBranchIds->intersect($availableBranchIds);
+            }
+
+            $commonBranchIds = collect($commonBranchIds)
+                ->unique()
+                ->values();
+
             if (!$user->isSuperAdmin()) {
+                // Admin biasa hanya boleh menggunakan cabang yang dapat diakses.
                 $accessibleBranchIds = collect($user->accessible_branch_ids ?? [])
                     ->map(fn ($id) => (int) $id);
 
-                $candidateBranchIds = $products->first()
-                    ->branches()
-                    ->pluck('branches.id')
-                    ->map(fn ($id) => (int) $id)
+                $commonBranchIds = $commonBranchIds
                     ->intersect($accessibleBranchIds)
                     ->values();
+            }
 
-                if ($candidateBranchIds->count() === 1) {
-                    $branchId = $candidateBranchIds->first();
-                } elseif ($candidateBranchIds->count() > 1) {
-                    // Jika pengguna mengakses beberapa cabang, pilih cabang
-                    // yang sama-sama menyediakan seluruh produk.
-                    $commonBranchIds = null;
-
-                    foreach ($products as $product) {
-                        $availableBranchIds = $product->branches()
-                            ->pluck('branches.id')
-                            ->map(fn ($id) => (int) $id);
-
-                        $commonBranchIds = $commonBranchIds === null
-                            ? $availableBranchIds
-                            : $commonBranchIds->intersect($availableBranchIds);
-                    }
-
-                    $commonBranchIds = $commonBranchIds
-                        ->intersect($accessibleBranchIds)
-                        ->values();
-
-                    if ($commonBranchIds->count() === 1) {
-                        $branchId = $commonBranchIds->first();
-                    }
-                }
+            // Jika hanya ada satu cabang yang menyediakan semua produk,
+            // gunakan cabang tersebut, bukan hanya products.branch_id.
+            if ($commonBranchIds->count() === 1) {
+                $branchId = (int) $commonBranchIds->first();
             } else {
+                // Jika ada beberapa cabang yang sama-sama menyediakan produk,
+                // utamakan cabang utama produk jika cabang itu masih tersedia.
                 $mainBranchIds = $products->pluck('branch_id')
                     ->filter()
                     ->map(fn ($id) => (int) $id)
                     ->unique()
                     ->values();
 
-                if ($mainBranchIds->count() === 1) {
-                    $branchId = $mainBranchIds->first();
+                if (
+                    $mainBranchIds->count() === 1
+                    && $commonBranchIds->contains($mainBranchIds->first())
+                ) {
+                    $branchId = (int) $mainBranchIds->first();
                 }
             }
 
@@ -622,6 +622,23 @@ class RentalService
             if (!in_array($paymentType, ['rental', 'deposit', 'late_fee', 'damage_fee'], true)) {
                 throw ValidationException::withMessages([
                     'payment_type' => 'Tipe pembayaran tidak valid.',
+                ]);
+            }
+
+            // Uang tunai boleh melebihi sisa tagihan sewa agar sistem dapat menghitung kembalian.
+            // Transfer/QRIS dan pembayaran denda tetap tidak boleh melebihi sisa kategori.
+            $method = strtolower((string) ($data['method'] ?? ''));
+            $isCashRentalPayment = $paymentType === 'rental' && in_array($method, ['cash', 'tunai'], true);
+
+            $isFinePayment = in_array($paymentType, ['late_fee', 'damage_fee'], true);
+            $categoryTotal = $isFinePayment ? (float) $rental->fine_amount : (float) $rental->total_amount;
+            $categoryTypes = $isFinePayment ? ['late_fee', 'damage_fee'] : ['rental', 'deposit'];
+            $categoryPaid = (float) $rental->payments()->whereIn('type', $categoryTypes)->sum('amount');
+            $categoryBalance = max(0, $categoryTotal - $categoryPaid);
+
+            if ($amount > $categoryBalance && !$isCashRentalPayment) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Jumlah pembayaran melebihi sisa kategori ini. Maksimal: Rp' . number_format($categoryBalance, 0, ',', '.') . '.',
                 ]);
             }
 

@@ -103,9 +103,12 @@ public function downloadInvoicePdf(Rental $rental)
             "Terima kasih."
         );
 
-        $waUrl = "https://wa.me/{$rental->customer->phone}?text={$message}";
-       '' return redirect()->away($waUrl);
-    }
+       
+$waUrl = "https://wa.me/{$rental->customer->phone}?text={$message}";
+
+return redirect()->away($waUrl);
+}
+
 
     public function ensureQrStored(Rental $rental): ?string
     {

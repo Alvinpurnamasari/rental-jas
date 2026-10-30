@@ -42,7 +42,11 @@
                 </a>
                 @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                 @php
-                    $isRentalLocked = in_array($rental->rental_status, ['active', 'overdue']) || $rental->payment_status === 'paid';
+                    $isRentalLocked = in_array(
+    $rental->rental_status,
+    ['active', 'overdue', 'cancelled'],
+    true
+) || $rental->payment_status === 'paid';
                 @endphp
                 <a href="{{ $isRentalLocked ? '#' : route('rentals.edit', $rental) }}"
                    class="btn-secondary {{ $isRentalLocked ? 'opacity-50 cursor-not-allowed' : '' }}"
@@ -52,37 +56,44 @@
                 </a>
                 @endif
                 
-<template x-if="rental.rental_status === 'waiting'">
-    <div class="inline-flex items-center gap-2">
-        <button
-            type="button"
-            @click="if (['paid', 'partial'].includes(rental.payment_status)) openHandoverModal()"
-            :disabled="!['paid', 'partial'].includes(rental.payment_status)"
-            :class="!['paid', 'partial'].includes(rental.payment_status)
-                ? 'cursor-not-allowed opacity-50'
-                : 'hover:bg-emerald-700'"
-            class="rental-action-btn inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm"
-        >
-            <i data-lucide="play" class="w-4 h-4"></i>
-            Mulai Sewa / Serah Terima
-        </button>
+                <template x-if="rental.rental_status === 'waiting'">
+                    <div class="inline-flex items-center gap-2">
+                        <button
+                            type="button"
+                            @click="if (['paid', 'partial'].includes(rental.payment_status)) openHandoverModal()"
+                            :disabled="!['paid', 'partial'].includes(rental.payment_status)"
+                            :class="!['paid', 'partial'].includes(rental.payment_status)
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'hover:bg-emerald-700'"
+                            class="rental-action-btn inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm"
+                        >
+                            <i data-lucide="play" class="w-4 h-4"></i>
+                            Mulai Sewa / Serah Terima
+                        </button>
 
-        <!-- Tombol Batalkan tetap seperti sebelumnya -->
-        @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
-            <form method="POST"
-                  action="{{ route('rentals.cancel', $rental) }}"
-                  class="inline"
-                  onsubmit="return confirm('Apakah Anda yakin ingin membatalkan penyewaan ini? Status akan berubah menjadi Dibatalkan dan stok akan dikembalikan.');">
-                @csrf
-                <button type="submit"
-                        class="rental-action-btn inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-rose-700">
-                    <i data-lucide="x-circle" class="w-4 h-4"></i>
-                    Batalkan
-                </button>
-            </form>
-        @endif
-    </div>
-</template>
+                        {{-- Tombol Batalkan dengan konfirmasi SweetAlert2 --}}
+                        @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
+                            <form
+                                method="POST"
+                                action="{{ route('rentals.cancel', $rental) }}"
+                                class="inline"
+                                onsubmit="return confirmCancelRental(event, this)"
+                            >
+                                @csrf
+                                @method('PATCH')
+
+                                <button
+                                    type="submit"
+                                    class="rental-action-btn inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700"
+                                >
+                                    <i data-lucide="x-circle" class="w-4 h-4"></i>
+                                    Batalkan
+                                </button>
+                            </form>
+                        @endif
+
+                    </div>
+                </template>
 
                 <a href="{{ route('rentals.receipt.show', $rental) }}" class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Receipt</a>
                 <a href="{{ route('rentals.receipt.pdf', $rental) }}" class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Receipt PDF</a>
@@ -95,18 +106,75 @@
                     WA Receipt
                 </a> 
                 <a href="{{ route('rentals.reminder', $rental) }}" class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Reminder</a>
+                
+
                 @php
-                    $canDelete = (
-                        ($rental->rental_status === 'waiting' && $rental->payment_status === 'unpaid')
-                        || in_array($rental->rental_status, ['cancelled', 'returned'])
-                    );
-                @endphp
-                @if((auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko()) && $canDelete)
-                <button type="button" onclick="confirmDeleteRental('{{ $rental->invoice_number }}', '{{ $rental->rental_status }}')" class="btn-secondary text-red-500 hover:bg-red-50">
+                // Status yang diperbolehkan untuk dihapus.
+                $isDeleteStatusAllowed = in_array(
+                    $rental->rental_status,
+                    ['cancelled', 'returned'],
+                    true
+                ) || (
+                    $rental->rental_status === 'waiting'
+                    && $rental->payment_status === 'unpaid'
+                );
+            
+                // Total tagihan sewa.
+                $totalSewa = max(0, (float) $rental->total_amount);
+            
+                $dibayarSewa = (float) $rental->payments()
+                    ->whereIn('type', ['rental', 'deposit'])
+                    ->sum('amount');
+            
+                $sisaSewa = max(0, $totalSewa - $dibayarSewa);
+            
+                // Total denda.
+                $totalDenda = max(0, (float) $rental->late_fee)
+                    + max(0, (float) $rental->fine_amount);
+            
+                $dibayarDenda = (float) $rental->payments()
+                    ->whereIn('type', ['late_fee', 'damage_fee'])
+                    ->sum('amount');
+            
+                $sisaDenda = max(0, $totalDenda - $dibayarDenda);
+            
+                // Kewajiban pengembalian uang.
+                $sisaKembalian = max(
+                    0,
+                    (float) ($rental->change_amount ?? 0)
+                    - (float) ($rental->refund_given ?? 0)
+                );
+            
+                // Tombol muncul jika status sesuai dan tidak ada kewajiban tersisa.
+                $canDelete = (
+                $rental->rental_status === 'cancelled'
+                || (
+                    $isDeleteStatusAllowed
+                    && $sisaSewa <= 0
+                    && $sisaDenda <= 0
+                    && $sisaKembalian <= 0
+                )
+            );
+            @endphp
+            
+            @if(
+                (auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
+                && $canDelete
+            )
+                <button
+                    type="button"
+                    onclick="confirmDeleteRental(
+                        '{{ $rental->invoice_number }}',
+                        '{{ $rental->rental_status }}'
+                    )"
+                    class="btn-secondary text-red-500 hover:bg-red-50"
+                >
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                     Hapus
                 </button>
-                @endif
+            @endif
+            
+
             </div>
 
             <!-- Hidden delete form for SweetAlert confirmation -->
@@ -137,6 +205,29 @@
                         document.getElementById('deleteRentalForm').submit();
                     }
                 });
+            }
+
+            
+            function confirmCancelRental(event, form) {
+                event.preventDefault();
+
+                Swal.fire({
+                    title: 'Batalkan Penyewaan?',
+                    html: 'Apakah Anda yakin ingin membatalkan penyewaan ini?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Ya, Batalkan',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+
+                return false;
             }
 
             function downloadPdfAndOpenWa(pdfUrl, customerName, invoiceNumber, customerPhone) {
@@ -572,29 +663,81 @@
                             </div>
                         </div>
                         
-                        <!-- Sisa yang harus dibayar -->
-                        <div class="mt-4 overflow-hidden rounded-2xl border border-blue-100 bg-blue-50 p-4" x-show="totalRemaining > 0">
-                            <div class="flex items-center gap-2">
-                                <div class="shrink-0 rounded-xl bg-blue-100 p-2 text-blue-600">
-                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </div>
-                                <span class="min-w-0 flex-1 text-sm font-semibold leading-tight text-blue-800">Sisa yang harus dibayar</span>
-                            </div>
+   
+<!-- Ringkasan tagihan sewa atau denda -->
+<div
+class="mt-4 overflow-hidden rounded-2xl border p-4"
+:class="Number(rental.fine_amount || 0) > Number(rental.fine_paid_amount || 0)
+    ? 'border-red-200 bg-red-50'
+    : 'border-blue-200 bg-blue-50'"
+x-show="rental.rental_status !== 'cancelled' && totalRemaining > 0"
+>
+<div class="flex items-center gap-2">
+    <div
+        class="shrink-0 rounded-xl p-2"
+        :class="Number(rental.fine_amount || 0) > Number(rental.fine_paid_amount || 0)
+            ? 'bg-red-100 text-red-600'
+            : 'bg-blue-100 text-blue-600'"
+    >
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            ></path>
+        </svg>
+    </div>
 
-                            <div class="mt-3">
-                                <span class="block break-all text-left text-[1.65rem] font-extrabold leading-none tracking-tight tabular-nums text-blue-700 sm:text-3xl" x-text="fmt(totalRemaining)"></span>
-                            </div>
+    <span
+        class="min-w-0 flex-1 text-sm font-semibold leading-tight"
+        :class="Number(rental.fine_amount || 0) > Number(rental.fine_paid_amount || 0)
+            ? 'text-red-800'
+            : 'text-blue-800'"
+        x-text="Number(rental.fine_amount || 0) > Number(rental.fine_paid_amount || 0)
+            ? 'Sisa Denda yang Harus Dibayar'
+            : 'Tagihan Sewa yang Harus Dibayar'"
+    ></span>
+</div>
 
-                            <p class="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-left text-[11px] leading-relaxed text-blue-600 sm:text-xs">
-                                <span>Total tagihan: <span class="whitespace-nowrap font-semibold tabular-nums" x-text="fmt(Math.max(0, (Number(rental.total_amount) || 0) + (Number(rental.fine_amount) || 0)))"></span></span>
-                                <span class="text-blue-500">−</span>
-                                <span>Sudah dibayar: <span class="whitespace-nowrap font-semibold tabular-nums" x-text="fmt((Number(rental.paid_amount) || 0) + (Number(rental.fine_paid_amount) || 0))"></span></span>
-                            </p>
-                        </div>
+<div class="mt-3">
+    <span
+        class="block break-all text-left text-[1.65rem] font-extrabold leading-none tracking-tight tabular-nums sm:text-3xl"
+        :class="Number(rental.fine_amount || 0) > Number(rental.fine_paid_amount || 0)
+            ? 'text-red-700'
+            : 'text-blue-700'"
+        x-text="fmt(totalRemaining)"
+    ></span>
+</div>
+
+<p
+    class="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-left text-[11px] leading-relaxed sm:text-xs"
+    :class="Number(rental.fine_amount || 0) > Number(rental.fine_paid_amount || 0)
+        ? 'text-red-600'
+        : 'text-blue-600'"
+>
+    <span>
+        Total tagihan:
+        <span
+            class="whitespace-nowrap font-semibold tabular-nums"
+            x-text="fmt(Math.max(0, (Number(rental.total_amount) || 0) + (Number(rental.fine_amount) || 0)))"
+        ></span>
+    </span>
+
+    <span class="opacity-70">−</span>
+
+    <span>
+        Sudah dibayar:
+        <span
+            class="whitespace-nowrap font-semibold tabular-nums"
+            x-text="fmt((Number(rental.paid_amount) || 0) + (Number(rental.fine_paid_amount) || 0))"
+        ></span>
+    </span>
+</p>
+</div>
+
                         
-                        <template x-if="totalRemaining === 0 && (Number(rental.total_amount) || 0) + (Number(rental.fine_amount) || 0) > 0">
+<template x-if="rental.rental_status !== 'cancelled' && totalRemaining === 0 && (Number(rental.total_amount) || 0) + (Number(rental.fine_amount) || 0) > 0">
                             <div class="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-center">
                                 <div class="flex flex-col items-center justify-center gap-2 text-emerald-700">
                                     <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
@@ -902,15 +1045,24 @@
                 },
 
                 get displayGrandTotal() {
-                    return Number(this.rental.total_amount || 0) + Number(this.rental.fine_amount || 0);
+                    if (this.rental.rental_status === 'cancelled') {
+                        return 0;
+                    }
+
+                    return Number(this.rental.total_amount || 0)
+                        + Number(this.rental.fine_amount || 0);
                 },
 
                 get totalRemaining() {
+                    if (this.rental.rental_status === 'cancelled') {
+                        return 0;
+                    }
+
                     return Math.max(
                         0,
                         Number(this.rental.total_amount || 0)
                             + Number(this.rental.fine_amount || 0)
-                            - Number(this.rental.paid_amount || 0)
+                            - Number(this.paid_amount || 0)
                             - Number(this.rental.fine_paid_amount || 0)
                     );
                 },
@@ -978,13 +1130,19 @@
                         return;
                     }
 
-                    if (numericAmount > paymentBalance) {
+                    const isCashRentalPayment = paymentType === 'rental' && this.paymentMethod === 'cash';
+                    if (numericAmount > paymentBalance && !isCashRentalPayment) {
                         this.paymentErrors = [
                             'Jumlah pembayaran melebihi sisa kategori ini. Maksimal: ' +
                             this.fmt(paymentBalance) + '.'
                         ];
                         this.paymentProcessing = false;
                         return;
+                    }
+
+                    // Jika tunai untuk sewa, nominal lebih diperbolehkan dan akan menjadi kembalian.
+                    if (numericAmount > paymentBalance && isCashRentalPayment) {
+                        this.paymentErrors = [];
                     }
 
                     try {

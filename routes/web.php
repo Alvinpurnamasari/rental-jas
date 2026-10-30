@@ -241,7 +241,7 @@ Route::delete(
         Route::get('/stock', [ReportController::class, 'stock'])->name('reports.stock');
         Route::get('/customers', [ReportController::class, 'customers'])->name('reports.customers');
         Route::get('/payments', [ReportController::class, 'payments'])->name('reports.payments');
-        Route::get('/activity-log', [ReportController::class, 'activityLog'])->name('reports.activity-log');
+        
         Route::get('/activity-log/export/csv', [ReportController::class, 'exportActivityLog'])->name('reports.activity-log.export.csv');
         Route::get('/activity-log/export/pdf', [ReportController::class, 'exportActivityLogPdf'])->name('reports.activity-log.export.pdf');
 
@@ -264,7 +264,24 @@ Route::delete(
         Route::get('/lost-items', [ReportController::class, 'lostItems']) ->name('reports.lost-items');
         
     });
-});
+   
+
+    Route::get('/lost-items', [ReportController::class, 'lostItems'])
+        ->name('reports.lost-items');
+}); // Penutup grup reports di sini
+
+// Route aktivitas di luar grup reports.
+Route::get('/reports/activity-log', [
+    \App\Http\Controllers\ReportController::class,
+    'activityLog',
+])
+    ->middleware([
+        'auth',
+        \App\Http\Middleware\CheckRole::class . ':super_admin,admin_toko,sales',
+    ])
+    ->name('reports.activity-log');
+
+// Grup route berikutnya dimulai di bawah ini.
 
     // ─── SUPER ADMIN MODULES (Payment/Transaction) ─────────────────────
 Route::middleware(['auth', \App\Http\Middleware\EnsureBranchScope::class])->group(function () {

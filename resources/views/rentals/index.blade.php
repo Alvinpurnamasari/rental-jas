@@ -180,11 +180,17 @@
                                 @auth
                                 @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
                                 @php
-                                    $isRentalLocked = in_array($rental->rental_status, ['active', 'overdue']) || $rental->payment_status === 'paid';
+                                    // Penyewaan yang dibatalkan tidak boleh diedit.
+                                    $isRentalLocked = in_array($rental->rental_status, ['active', 'overdue', 'cancelled'], true)
+                                        || $rental->payment_status === 'paid';
+
+                                    $editLockTitle = $rental->rental_status === 'cancelled'
+                                        ? 'Penyewaan sudah dibatalkan dan tidak dapat diedit'
+                                        : 'Penyewaan sedang berjalan atau sudah dibayar';
                                 @endphp
                                           <a href="{{ $isRentalLocked ? '#' : route('rentals.edit', $rental) }}"
                                               class="action-btn {{ $isRentalLocked ? 'opacity-50 cursor-not-allowed' : '' }}"
-                                   title="{{ $isRentalLocked ? 'Penyewaan sedang berjalan atau sudah dibayar' : 'Edit' }}"
+                                   title="{{ $isRentalLocked ? $editLockTitle : 'Edit' }}"
                                    @if($isRentalLocked) onclick="event.preventDefault(); return false;" @endif>
                                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                                 </a>
@@ -203,7 +209,38 @@
 
                                 @auth
                                 @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
-                                @if(($rental->rental_status === 'waiting' && $rental->payment_status === 'unpaid') || in_array($rental->rental_status, ['cancelled', 'returned']))
+                                @php
+                                    // Samakan syarat tombol Hapus dengan validasi RentalController::destroy().
+                                    $totalSewaDelete = max(0, (float) $rental->total_amount);
+                                    $totalDendaDelete = max(0, (float) $rental->late_fee)
+                                        + max(0, (float) $rental->fine_amount);
+
+                                    $dibayarSewaDelete = (float) $rental->payments()
+                                        ->whereIn('type', ['rental', 'deposit'])
+                                        ->sum('amount');
+                                    $dibayarDendaDelete = (float) $rental->payments()
+                                        ->whereIn('type', ['late_fee', 'damage_fee'])
+                                        ->sum('amount');
+
+                                    $sisaSewaDelete = max(0, $totalSewaDelete - $dibayarSewaDelete);
+                                    $sisaDendaDelete = max(0, $totalDendaDelete - $dibayarDendaDelete);
+                                    $sisaKembalianDelete = max(
+                                        0,
+                                        (float) ($rental->change_amount ?? 0)
+                                            - (float) ($rental->refund_given ?? 0)
+                                    );
+
+                                    // Penyewaan dibatalkan boleh dihapus meskipun belum ada pembayaran.
+                                    // Penyewaan yang sudah dikembalikan hanya boleh dihapus jika semua kewajiban lunas.
+                                    $canDelete = $rental->rental_status === 'cancelled'
+                                        || (
+                                            $rental->rental_status === 'returned'
+                                            && $sisaSewaDelete <= 0
+                                            && $sisaDendaDelete <= 0
+                                            && $sisaKembalianDelete <= 0
+                                        );
+                                @endphp
+                                @if($canDelete)
                                 <form method="POST" action="{{ route('rentals.destroy', $rental) }}" id="deleteRentalForm_{{ $rental->id }}" class="hidden">
                                     @csrf
                                     @method('DELETE')
@@ -254,7 +291,7 @@
         <div class="px-6 py-4 border-t border-cream-sand/50 bg-cream/5">
             {{ $rentals->appends(request()->query())->links('components.pagination') }}
         </div>
-        @endif
+    @endif
 </div>
 
 @endsection
