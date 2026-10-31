@@ -1053,19 +1053,51 @@ x-show="rental.rental_status !== 'cancelled' && totalRemaining > 0"
                         + Number(this.rental.fine_amount || 0);
                 },
 
-                get totalRemaining() {
-                    if (this.rental.rental_status === 'cancelled') {
-                        return 0;
-                    }
+                
+get totalRemaining() {
+    if (this.rental.rental_status === 'cancelled') {
+        return 0;
+    }
 
-                    return Math.max(
-                        0,
-                        Number(this.rental.total_amount || 0)
-                            + Number(this.rental.fine_amount || 0)
-                            - Number(this.paid_amount || 0)
-                            - Number(this.rental.fine_paid_amount || 0)
-                    );
-                },
+    const totalSewa = Math.max(
+        0,
+        Number(this.rental.total_amount || 0)
+    );
+
+    const totalDenda = Math.max(
+        0,
+        Number(this.rental.fine_amount || 0)
+    );
+
+    const sudahDibayarSewa = Math.max(
+        0,
+        Number(this.rental.paid_amount || 0)
+    );
+
+    const sudahDibayarDenda = Math.max(
+        0,
+        Number(this.rental.fine_paid_amount || 0)
+    );
+
+    const sisaSewa = Math.max(
+        0,
+        totalSewa - sudahDibayarSewa
+    );
+
+    const sisaDenda = Math.max(
+        0,
+        totalDenda - sudahDibayarDenda
+    );
+
+    // Jika denda belum lunas, tampilkan sisa denda saja.
+    // Jika denda lunas, tampilkan sisa tagihan sewa.
+    if (sisaDenda > 0) {
+        return sisaDenda;
+    }
+
+    return sisaSewa;
+},
+
 
                 paymentBalance(type = this.paymentType) {
                     return Math.max(0, Number(this.rental.payment_balances?.[type] || 0));

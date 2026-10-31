@@ -122,6 +122,10 @@ class RentalController extends Controller
             );
         }
 
+        if ($user->role === 'sales') {
+            return null;
+        }
+        
         abort(403);
     }
 
@@ -323,23 +327,45 @@ Rental::where('rental_status', 'overdue')
         return view("rentals.index", compact("rentals"));
     }
 
+
     public function create()
     {
         $user = Auth::user();
-        $customers = Customer::when($user->role === "sales", function($q) use ($user) {
-            $q->where("user_id", $user->id);
-        })->when(!$user->isSuperAdmin() && $user->role !== "sales" && $user->branch_access_type === 'specific', function($q) use ($user) {
-            $q->whereIn("branch_id", $user->accessible_branch_ids);
-        })->get();
-
-        $products = Product::when(!$user->isSuperAdmin() && $user->branch_access_type === 'specific', function($q) use ($user) {
-            $q->whereHas('branches', fn($bq) => $bq->whereIn('branches.id', $user->accessible_branch_ids));
-        })->where("status", "available")->where("stock_available", ">", 0)->with('sizes')->get();
-
+    
+        $customers = Customer::where('is_blacklisted', false)
+            ->when($user->role === 'sales', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->when(
+                !$user->isSuperAdmin()
+                    && $user->role !== 'sales'
+                    && $user->branch_access_type === 'specific',
+                function ($q) use ($user) {
+                    $q->whereIn('branch_id', $user->accessible_branch_ids);
+                }
+            )
+            ->orderBy('name')
+            ->get();
+    
+        $products = Product::when(
+            !$user->isSuperAdmin()
+                && $user->branch_access_type === 'specific',
+            function ($q) use ($user) {
+                $q->whereHas('branches', fn ($bq) =>
+                    $bq->whereIn('branches.id', $user->accessible_branch_ids)
+                );
+            }
+        )
+            ->where('status', 'available')
+            ->where('stock_available', '>', 0)
+            ->with('sizes')
+            ->get();
+    
         $qris = $this->qrisData();
-
-        return view("rentals.create", compact("customers", "products", "qris"));
+    
+        return view('rentals.create', compact('customers', 'products', 'qris'));
     }
+    
 
     public function store(StoreRentalRequest $request)
     {

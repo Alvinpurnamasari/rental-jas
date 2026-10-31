@@ -242,6 +242,10 @@ class ReportController extends Controller
             return $requestedId === null ? $branchIds : [$requestedId];
         }
 
+        if ($user->role === 'sales') {
+            return null;
+        }
+        
         abort(403);
     }
 

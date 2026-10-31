@@ -232,15 +232,41 @@
                                                 Rp {{ number_format($r->total_amount ?? 0, 0, ',', '.') }}
                                             </td>
                                             <td class="text-center">
-                                                @if ($r->rental_status === 'active')
-                                                    <span class="badge badge-blue">Aktif</span>
-                                                @elseif($r->rental_status === 'returned')
-                                                    <span class="badge badge-green">Dikembalikan</span>
-                                                @elseif($r->rental_status === 'overdue')
-                                                    <span class="badge badge-red">Terlambat</span>
-                                                @else
-                                                    <span class="badge badge-gray">{{ $r->rental_status }}</span>
+                                                @php
+                                                $statusClasses = [
+                                                    'waiting' => 'badge-gray',
+                                                    'processing' => 'badge-gold',
+                                                    'active' => 'badge-blue',
+                                                    'overdue' => 'badge-red',
+                                                    'returned' => 'badge-green',
+                                                    'cancelled' => 'badge-gray',
+                                                ];
+
+                                                $statusLabels = [
+                                                    'waiting' => 'MENUNGGU',
+                                                    'processing' => 'DIPROSES',
+                                                    'active' => 'AKTIF',
+                                                    'overdue' => 'TERLAMBAT',
+                                                    'returned' => 'Dikembalikan',
+                                                    'cancelled' => 'Dibatalkan',
+                                                ];
+                                                @endphp
+
+                                                <div class="flex flex-wrap justify-center gap-1">
+                                                <span class="badge {{ $statusClasses[$r->rental_status] ?? 'badge-gray' }}">
+                                                    {{ $statusLabels[$r->rental_status] ?? $r->rental_status }}
+                                                </span>
+
+                                                @if ((float) ($r->fine_amount ?? 0) > 0)
+                                                    @if ($r->fine_status === \App\Models\Rental::FINE_UNPAID)
+                                                        <span class="badge badge-red">Denda Belum Lunas</span>
+                                                    @elseif ($r->fine_status === \App\Models\Rental::FINE_PARTIAL)
+                                                        <span class="badge badge-gold">Denda Sebagian</span>
+                                                    @elseif ($r->fine_status === \App\Models\Rental::FINE_PAID)
+                                                        <span class="badge badge-green">Denda Lunas</span>
+                                                    @endif
                                                 @endif
+                                                </div>
                                             </td>
                                         </tr>
                                         @endif
@@ -284,15 +310,41 @@
                                                 Rp {{ number_format($r->total_amount ?? 0, 0, ',', '.') }}
                                             </p>
                                             <div>
-                                                @if ($r->rental_status === 'active')
-                                                    <span class="badge badge-blue">Aktif</span>
-                                                @elseif($r->rental_status === 'returned')
-                                                    <span class="badge badge-green">Dikembalikan</span>
-                                                @elseif($r->rental_status === 'overdue')
-                                                    <span class="badge badge-red">Terlambat</span>
-                                                @else
-                                                    <span class="badge badge-gray">{{ $r->rental_status }}</span>
+                                                @php
+                                                $statusClasses = [
+                                                    'waiting' => 'badge-gray',
+                                                    'processing' => 'badge-gold',
+                                                    'active' => 'badge-blue',
+                                                    'overdue' => 'badge-red',
+                                                    'returned' => 'badge-green',
+                                                    'cancelled' => 'badge-gray',
+                                                ];
+
+                                                $statusLabels = [
+                                                    'waiting' => 'MENUNGGU',
+                                                    'processing' => 'DIPROSES',
+                                                    'active' => 'AKTIF',
+                                                    'overdue' => 'TERLAMBAT',
+                                                    'returned' => 'Dikembalikan',
+                                                    'cancelled' => 'Dibatalkan',
+                                                ];
+                                                @endphp
+
+                                                <div class="flex flex-wrap justify-center gap-1">
+                                                <span class="badge {{ $statusClasses[$r->rental_status] ?? 'badge-gray' }}">
+                                                    {{ $statusLabels[$r->rental_status] ?? $r->rental_status }}
+                                                </span>
+
+                                                @if ((float) ($r->fine_amount ?? 0) > 0)
+                                                    @if ($r->fine_status === \App\Models\Rental::FINE_UNPAID)
+                                                        <span class="badge badge-red">Denda Belum Lunas</span>
+                                                    @elseif ($r->fine_status === \App\Models\Rental::FINE_PARTIAL)
+                                                        <span class="badge badge-gold">Denda Sebagian</span>
+                                                    @elseif ($r->fine_status === \App\Models\Rental::FINE_PAID)
+                                                        <span class="badge badge-green">Denda Lunas</span>
+                                                    @endif
                                                 @endif
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
