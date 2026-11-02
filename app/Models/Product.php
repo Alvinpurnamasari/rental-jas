@@ -13,12 +13,14 @@ class Product extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = [
-        'branch_id', 'category_id', 'code', 'name', 'description',
-        'size', 'color', 'brand', 'rental_price', 'deposit_price',
-        'stock_total', 'stock_available', 'photo', 'qr_code',
-        'condition', 'status', 'notes',
-    ];
+    
+protected $fillable = [
+    'branch_id', 'category_id', 'code', 'name', 'description',
+    'size', 'color', 'brand', 'rental_price', 'deposit_price',
+    'stock_total', 'stock_available', 'photo', 'qr_code',
+    'condition', 'status', 'notes', 'points',
+];
+
 
     protected $casts = [
         'rental_price' => 'decimal:2',

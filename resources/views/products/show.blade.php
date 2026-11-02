@@ -94,6 +94,12 @@
                                                 @endforelse
                                             </div>
                                         </div>
+                                        <div class="rounded-xl p-3" style="background:var(--secondary)">
+                                            <p class="text-xs" style="color:var(--text-soft)">Poin Sales</p>
+                                            <p class="font-semibold text-sm mt-0.5" style="color:var(--text-dark)">
+                                                {{ $product->points ?? 3 }} poin
+                                            </p>
+                                        </div>
                                     <div class="rounded-xl p-3" style="background:var(--secondary)">
                                         <p class="text-xs" style="color:var(--text-soft)">Warna</p>
                                         <p class="font-semibold text-sm mt-0.5" style="color:var(--text-dark)">

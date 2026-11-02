@@ -148,8 +148,6 @@ class RentalService
 
         $newValues = $this->rentalSnapshot($rental);
 
-        $this->addSalesPoints($rental, 'serah', 3);
-
         return $newValues;
     }
 
@@ -159,30 +157,59 @@ class RentalService
         return array_intersect_key($this->rentalSnapshot($rental), array_flip($whitelist));
     }
 
-    public function addSalesPoints(Rental $rental, string $type, int $points): void
-    {
-        $guardColumn = match ($type) {
-            'serah' => 'points_awarded_serah',
-            'kembali' => 'points_awarded_kembali',
-            default => throw new \InvalidArgumentException('Invalid point type: ' . $type),
-        };
+    
+public function addSalesPoints(Rental $rental, string $type, int $points = 0): void
+{
+    $guardColumn = match ($type) {
+        'serah'   => 'points_awarded_serah',
+        'kembali' => 'points_awarded_kembali',
+        default   => throw new \InvalidArgumentException(
+            'Invalid point type: ' . $type
+        ),
+    };
 
-        if ($rental->{$guardColumn}) {
-            return;
-        }
-
-        $sales = match ($type) {
-            'serah' => $rental->createdBy,
-            'kembali' => $rental->returnedBy,
-        };
-
-        if (!$sales || !$sales->isSales()) {
-            return;
-        }
-
-        $sales->increment('total_points', $points);
-        $rental->update([$guardColumn => true]);
+    // Mencegah poin diberikan lebih dari sekali untuk tahap yang sama.
+    if ($rental->{$guardColumn}) {
+        return;
     }
+
+    // Tentukan sales yang menerima poin.
+    $sales = match ($type) {
+        'serah'   => $rental->createdBy,
+        'kembali' => $rental->returnedBy,
+    };
+
+    if (!$sales || !$sales->isSales()) {
+        return;
+    }
+
+    // Hitung berdasarkan poin masing-masing produk dikali jumlah barang.
+    $totalPoints = 0;
+
+    $items = $rental->items()->with('product')->get();
+
+    foreach ($items as $item) {
+        $product = $item->product;
+
+        if (!$product) {
+            continue;
+        }
+
+        $productPoints = max(0, (int) ($product->points ?? 3));
+        $quantity = max(0, (int) ($item->quantity ?? 0));
+
+        $totalPoints += $productPoints * $quantity;
+    }
+
+    // Tidak memberikan poin jika hasil perhitungan nol.
+    // Penanda tetap disimpan agar tidak diproses berulang.
+    if ($totalPoints > 0) {
+        $sales->increment('total_points', $totalPoints);
+    }
+
+    $rental->update([$guardColumn => true]);
+}
+
 
     public function buildDetailPayload(Rental $rental): array
     {
@@ -679,8 +706,6 @@ class RentalService
                 'Pembayaran diterima',
                 'Pembayaran sebesar Rp' . number_format($amount, 0, ',', '.') . ' untuk invoice ' . $rental->invoice_number . ' berhasil dicatat.'
             );
-
-            $this->addSalesPoints($rental, 'serah', 3);
 
             return $payment;
         });

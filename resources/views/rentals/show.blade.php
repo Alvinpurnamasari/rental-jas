@@ -98,13 +98,17 @@
                 <a href="{{ route('rentals.receipt.show', $rental) }}" class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Receipt</a>
                 <a href="{{ route('rentals.receipt.pdf', $rental) }}" class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Receipt PDF</a>
                 <a href="{{ route('rentals.invoice', $rental) }}" title="Invoice A4 — format sama dengan Unduh Invoice di Riwayat Penyewaan" class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Invoice PDF</a>   
-                <a href="https://wa.me/{{ preg_replace('/\D/', '', str_starts_with($rental->customer->phone ?? '', '0') ? '62' . substr($rental->customer->phone, 1) : ($rental->customer->phone ?? '')) }}?text={{ urlencode('Halo ' . ($rental->customer->name ?? 'Customer') . ',' . "\n\n" . 'Berikut receipt penyewaan Anda.' . "\n" . 'Nomor Invoice: ' . $rental->invoice_number . "\n" . 'Silakan buka tautan berikut untuk melihat receipt PDF:' . "\n" . route('rentals.receipt.pdf', $rental)) }}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Buka WhatsApp dengan tautan Receipt PDF"
-                    class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">
+                
+
+                <button
+                    type="button"
+                    onclick="shareRentalReceiptImage()"
+                    title="Bagikan gambar receipt ke WhatsApp"
+                    class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                >
                     WA Receipt
-                </a> 
+                </button>
+            
                 <a href="{{ route('rentals.reminder', $rental) }}" class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Reminder</a>
                 
 
@@ -1717,4 +1721,108 @@ async confirmHandover() {
             };
         }
     </script>
+    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+async function shareRentalReceiptImage() {
+    const receiptUrl = @json(route('rentals.receipt.show', $rental));
+    const customerName = @json($rental->customer->name ?? 'Customer');
+    const invoiceNumber = @json($rental->invoice_number);
+
+    if (!navigator.share || !navigator.canShare) {
+        alert(
+            'Browser ini belum mendukung berbagi gambar langsung. ' +
+            'Silakan buka Receipt dan gunakan tombol WhatsApp di halaman tersebut.'
+        );
+        return;
+    }
+
+    if (typeof html2canvas === 'undefined') {
+        alert('Fitur pembuat gambar belum termuat. Muat ulang halaman lalu coba lagi.');
+        return;
+    }
+
+    let iframe;
+
+    try {
+        // Muat halaman receipt di iframe tersembunyi,
+        // tanpa berpindah dari halaman Detail Penyewaan.
+        iframe = document.createElement('iframe');
+        iframe.src = receiptUrl;
+        iframe.style.position = 'fixed';
+        iframe.style.left = '-10000px';
+        iframe.style.top = '0';
+        iframe.style.width = '430px';
+        iframe.style.height = '1200px';
+        iframe.style.border = '0';
+
+        document.body.appendChild(iframe);
+
+        await new Promise((resolve, reject) => {
+            iframe.onload = resolve;
+            iframe.onerror = reject;
+        });
+
+        const receiptDocument = iframe.contentDocument;
+        const receiptCard = receiptDocument?.querySelector(
+            '.receipt-compact-card'
+        );
+
+        if (!receiptCard) {
+            throw new Error('Elemen nota tidak ditemukan.');
+        }
+
+        const canvas = await html2canvas(receiptCard, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            useCORS: true,
+            logging: false
+        });
+
+        const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob(image => {
+                if (image) resolve(image);
+                else reject(new Error('Gagal membuat gambar nota.'));
+            }, 'image/png');
+        });
+
+        const safeInvoice = String(invoiceNumber)
+            .replace(/[^a-zA-Z0-9-_]/g, '-');
+
+        const imageFile = new File(
+            [blob],
+            `nota-${safeInvoice}.png`,
+            { type: 'image/png' }
+        );
+
+        if (!navigator.canShare({ files: [imageFile] })) {
+            throw new Error('Browser tidak mendukung berbagi file gambar.');
+        }
+
+        await navigator.share({
+            title: `Receipt ${invoiceNumber}`,
+            text:
+                `Halo ${customerName},\n\n` +
+                `Berikut nota penyewaan Anda.\n` +
+                `Nomor invoice: ${invoiceNumber}\n\n` +
+                `Terima kasih telah menggunakan layanan SewaJas.`,
+            files: [imageFile]
+        });
+
+    } catch (error) {
+        if (error.name === 'AbortError') return;
+
+        console.error('Gagal berbagi receipt:', error);
+
+        alert(
+            'Gambar receipt belum berhasil dibagikan. ' +
+            'Periksa Console browser (F12) untuk melihat detail error.'
+        );
+    } finally {
+        if (iframe) iframe.remove();
+    }
+}
+</script>
+
 @endsection

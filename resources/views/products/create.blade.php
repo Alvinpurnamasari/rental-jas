@@ -1,3 +1,4 @@
+
 @extends('Layouts.app')
 
 @section('title', 'Tambah Produk Jas')
@@ -5,7 +6,7 @@
 @section('content')
 <div class="space-y-6">
 
-    {{-- ── HEADER ──────────────────────────────────────────── --}}
+    {{-- HEADER --}}
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-center gap-3">
             <a href="{{ route('products.index') }}" class="btn-secondary p-2">
@@ -18,16 +19,16 @@
         </div>
     </div>
 
-    {{-- ── FORM ─────────────────────────────────────────────── --}}
+    {{-- FORM --}}
     <form method="POST" action="{{ route('products.store') }}" enctype="multipart/form-data">
         @csrf
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            {{-- ── KOLOM KIRI (2/3) ─────────────────────────── --}}
+            {{-- KOLOM KIRI --}}
             <div class="lg:col-span-2 space-y-6">
 
-                {{-- Informasi Dasar --}}
+                {{-- INFORMASI DASAR --}}
                 <div class="card p-6 space-y-5">
                     <div class="flex items-center gap-2 pb-3 border-b" style="border-color:var(--border)">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--secondary)">
@@ -49,7 +50,7 @@
                         @enderror
                     </div>
 
-                    {{-- Kode & Kategori --}}
+                    {{-- Kode dan Kategori --}}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium mb-1.5" style="color:var(--text-dark)">
@@ -57,8 +58,11 @@
                             </label>
                             <input type="text" value="{{ $nextCode }}" disabled
                                    class="form-input cursor-not-allowed bg-slate-100 text-slate-500">
-                            <p class="text-xs mt-1" style="color:var(--text-soft)">Kode dibuat otomatis saat produk disimpan.</p>
+                            <p class="text-xs mt-1" style="color:var(--text-soft)">
+                                Kode dibuat otomatis saat produk disimpan.
+                            </p>
                         </div>
+
                         <div>
                             <label class="block text-sm font-medium mb-1.5" style="color:var(--text-dark)">
                                 Kategori <span class="text-red-500">*</span>
@@ -89,8 +93,8 @@
                     </div>
                 </div>
 
+                {{-- CABANG --}}
                 @if(auth()->user()->isSuperAdmin())
-                {{-- Cabang --}}
                 <div class="card p-6 space-y-5">
                     <div class="flex items-center gap-2 pb-3 border-b" style="border-color:var(--border)">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--secondary)">
@@ -98,25 +102,30 @@
                         </div>
                         <h2 class="font-semibold text-sm" style="color:var(--text-dark)">Cabang Tersedia</h2>
                     </div>
+
                     <div class="flex flex-wrap gap-3">
                         <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
-                            <input type="checkbox" id="select-all-branches" class="rounded text-blue-600 focus:ring-blue-500" checked>
+                            <input type="checkbox" id="select-all-branches"
+                                   class="rounded text-blue-600 focus:ring-blue-500" checked>
                             <span class="text-sm font-medium" style="color:var(--text-dark)">Pilih Semua Cabang</span>
                         </label>
+
                         @foreach($branches as $branch)
                         <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
-                            <input type="checkbox" name="branch_ids[]" value="{{ $branch->id }}" class="branch-checkbox rounded text-blue-600 focus:ring-blue-500" checked>
+                            <input type="checkbox" name="branch_ids[]" value="{{ $branch->id }}"
+                                   class="branch-checkbox rounded text-blue-600 focus:ring-blue-500" checked>
                             <span class="text-sm" style="color:var(--text-dark)">{{ $branch->name }}</span>
                         </label>
                         @endforeach
                     </div>
+
                     @error('branch_ids')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
                 @endif
 
-                {{-- Detail Fisik --}}
+                {{-- DETAIL FISIK --}}
                 <div class="card p-6 space-y-5">
                     <div class="flex items-center gap-2 pb-3 border-b" style="border-color:var(--border)">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--secondary)">
@@ -143,9 +152,9 @@
                             <select name="condition" class="form-input @error('condition') border-red-400 @enderror">
                                 <option value="">Pilih Kondisi</option>
                                 <option value="excellent" {{ old('condition') === 'excellent' ? 'selected' : '' }}>Excellent</option>
-                                <option value="good"      {{ old('condition') === 'good'      ? 'selected' : '' }}>Good</option>
-                                <option value="fair"      {{ old('condition') === 'fair'      ? 'selected' : '' }}>Fair</option>
-                                <option value="poor"      {{ old('condition') === 'poor'      ? 'selected' : '' }}>Poor</option>
+                                <option value="good" {{ old('condition') === 'good' ? 'selected' : '' }}>Good</option>
+                                <option value="fair" {{ old('condition') === 'fair' ? 'selected' : '' }}>Fair</option>
+                                <option value="poor" {{ old('condition') === 'poor' ? 'selected' : '' }}>Poor</option>
                             </select>
                             @error('condition')
                                 <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
@@ -154,7 +163,7 @@
                     </div>
                 </div>
 
-                {{-- Ukuran & Stok --}}
+                {{-- UKURAN DAN STOK --}}
                 <div class="card p-6 space-y-5">
                     <div class="flex items-center gap-2 pb-3 border-b" style="border-color:var(--border)">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--secondary)">
@@ -164,27 +173,25 @@
                     </div>
 
                     <div x-data='sizeForm({!! json_encode(old("sizes", []), JSON_UNESCAPED_UNICODE) !!})'>
-                        {{-- Size checkbox grid --}}
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <template x-for="sz in allSizes" :key="sz">
                                 <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
-                                    <input type="checkbox"
-                                           :value="sz"
-                                           x-model="selected"
+                                    <input type="checkbox" :value="sz" x-model="selected"
                                            @change="onToggle(sz, $event)">
                                     <span class="text-sm font-medium" style="color:var(--text-dark)" x-text="sz"></span>
                                 </label>
                             </template>
                         </div>
+
                         @error('sizes')
                             <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                         @enderror
 
-                        {{-- Dynamic stock inputs --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                             <template x-for="sz in selected" :key="sz">
                                 <div class="border border-slate-200 rounded-xl p-4" style="background:var(--bg)">
                                     <h4 class="font-semibold text-sm mb-3" style="color:var(--text-dark)" x-text="sz"></h4>
+
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
                                             <label class="block text-xs font-medium mb-1" style="color:var(--text-dark)">Stok Total</label>
@@ -207,16 +214,16 @@
                     </div>
                 </div>
 
-                {{-- Harga --}}
+                {{-- STOK, HARGA DAN POIN SALES --}}
                 <div class="card p-6 space-y-5">
                     <div class="flex items-center gap-2 pb-3 border-b" style="border-color:var(--border)">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--secondary)">
                             <i data-lucide="package" class="w-3.5 h-3.5" style="color:var(--primary)"></i>
                         </div>
-                        <h2 class="font-semibold text-sm" style="color:var(--text-dark)">Stok & Harga</h2>
+                        <h2 class="font-semibold text-sm" style="color:var(--text-dark)">Stok, Harga & Poin Sales</h2>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {{-- Harga Sewa --}}
                         <div>
                             <label class="block text-sm font-medium mb-1.5" style="color:var(--text-dark)">
@@ -224,11 +231,30 @@
                             </label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium" style="color:var(--text-soft)">Rp</span>
-                                <input type="number" name="rental_price" value="{{ old('rental_price') }}" min="0"
-                                       placeholder="0"
-                                       class="form-input @error('rental_price') border-red-400 @enderror" style="padding-left: 40px !important">
+                                <input type="number" name="rental_price" value="{{ old('rental_price') }}"
+                                       min="0" placeholder="0"
+                                       class="form-input @error('rental_price') border-red-400 @enderror"
+                                       style="padding-left:40px !important">
                             </div>
                             @error('rental_price')
+                                <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- POIN SALES --}}
+                        <div>
+                            <label class="block text-sm font-medium mb-1.5" style="color:var(--text-dark)">
+                                Poin Sales
+                            </label>
+                            <input type="number" name="points"
+                                   value="{{ old('points', 3) }}"
+                                   min="0" step="1" inputmode="numeric"
+                                   placeholder="3"
+                                   class="form-input @error('points') border-red-400 @enderror">
+                            <p class="text-xs mt-1" style="color:var(--text-soft)">
+                                Poin yang diberikan untuk produk ini. Isi 0 jika tidak memberikan poin.
+                            </p>
+                            @error('points')
                                 <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                             @enderror
                         </div>
@@ -237,10 +263,10 @@
 
             </div>
 
-            {{-- ── KOLOM KANAN (1/3) ────────────────────────── --}}
+            {{-- KOLOM KANAN --}}
             <div class="space-y-6">
 
-                {{-- Foto Produk --}}
+                {{-- FOTO PRODUK --}}
                 <div class="card p-6 space-y-4">
                     <div class="flex items-center gap-2 pb-3 border-b" style="border-color:var(--border)">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--secondary)">
@@ -253,9 +279,11 @@
                          class="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors"
                          style="border-color:var(--border)"
                          onclick="document.getElementById('image-input').click()">
+
                         <div id="preview-wrap" class="hidden mb-3">
                             <img id="preview-img" src="#" alt="Preview" class="w-full h-40 object-cover rounded-lg">
                         </div>
+
                         <div id="upload-placeholder">
                             <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style="background:var(--secondary)">
                                 <i data-lucide="upload-cloud" class="w-6 h-6" style="color:var(--primary)"></i>
@@ -263,14 +291,16 @@
                             <p class="text-sm font-medium" style="color:var(--text-dark)">Klik atau seret foto ke sini</p>
                             <p class="text-xs mt-1" style="color:var(--text-soft)">PNG, JPG, WEBP — Maks. 2MB</p>
                         </div>
+
                         <input type="file" id="image-input" name="image" accept="image/*" class="hidden">
                     </div>
+
                     @error('image')
                         <p class="text-xs text-red-500">{{ $message }}</p>
                     @enderror
                 </div>
 
-                {{-- Status & Publish --}}
+                {{-- STATUS PRODUK --}}
                 <div class="card p-6 space-y-4">
                     <div class="flex items-center gap-2 pb-3 border-b" style="border-color:var(--border)">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--secondary)">
@@ -282,7 +312,7 @@
                     <div>
                         <label class="block text-sm font-medium mb-1.5" style="color:var(--text-dark)">Status</label>
                         <select name="status" class="form-input @error('status') border-red-400 @enderror">
-                            <option value="available"   {{ old('status','available') === 'available'   ? 'selected' : '' }}>Tersedia</option>
+                            <option value="available" {{ old('status', 'available') === 'available' ? 'selected' : '' }}>Tersedia</option>
                             <option value="maintenance" {{ old('status') === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
                         </select>
                         @error('status')
@@ -291,7 +321,7 @@
                     </div>
                 </div>
 
-                {{-- Catatan --}}
+                {{-- CATATAN INTERNAL --}}
                 <div class="card p-6 space-y-4">
                     <div class="flex items-center gap-2 pb-3 border-b" style="border-color:var(--border)">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--secondary)">
@@ -299,12 +329,13 @@
                         </div>
                         <h2 class="font-semibold text-sm" style="color:var(--text-dark)">Catatan Internal</h2>
                     </div>
+
                     <textarea name="notes" rows="3"
                               placeholder="Catatan khusus tentang produk ini..."
                               class="form-input resize-none text-sm">{{ old('notes') }}</textarea>
                 </div>
 
-                {{-- Action Buttons --}}
+                {{-- TOMBOL AKSI --}}
                 <div class="flex flex-col gap-3">
                     <button type="submit" class="btn-primary w-full justify-center">
                         <i data-lucide="save" class="w-4 h-4"></i>
@@ -314,8 +345,8 @@
                         Batal
                     </a>
                 </div>
-            </div>
 
+            </div>
         </div>
     </form>
 </div>
@@ -324,9 +355,9 @@
 <script>
     lucide.createIcons();
 
-    // Image preview
-    const input    = document.getElementById('image-input');
-    const preview  = document.getElementById('preview-img');
+    // Preview foto
+    const input = document.getElementById('image-input');
+    const preview = document.getElementById('preview-img');
     const prevWrap = document.getElementById('preview-wrap');
     const placeholder = document.getElementById('upload-placeholder');
     const dropZone = document.getElementById('drop-zone');
@@ -335,13 +366,22 @@
         showPreview(this.files[0]);
     });
 
-    // Drag & drop
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; });
-    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border)'; });
+    // Drag and drop foto
+    dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--primary)';
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = 'var(--border)';
+    });
+
     dropZone.addEventListener('drop', e => {
         e.preventDefault();
         dropZone.style.borderColor = 'var(--border)';
+
         const file = e.dataTransfer.files[0];
+
         if (file) {
             const dt = new DataTransfer();
             dt.items.add(file);
@@ -352,40 +392,48 @@
 
     function showPreview(file) {
         if (!file) return;
+
         const reader = new FileReader();
+
         reader.onload = e => {
-            preview.src     = e.target.result;
+            preview.src = e.target.result;
             prevWrap.classList.remove('hidden');
             placeholder.classList.add('hidden');
         };
+
         reader.readAsDataURL(file);
     }
 
-    // Select all branches toggle
+    // Pilih semua cabang
     const selectAll = document.getElementById('select-all-branches');
     const branchCheckboxes = document.querySelectorAll('.branch-checkbox');
+
     if (selectAll) {
-        selectAll.addEventListener('change', function() {
+        selectAll.addEventListener('change', function () {
             branchCheckboxes.forEach(cb => cb.checked = this.checked);
         });
+
         branchCheckboxes.forEach(cb => {
-            cb.addEventListener('change', function() {
+            cb.addEventListener('change', function () {
                 selectAll.checked = Array.from(branchCheckboxes).every(c => c.checked);
             });
         });
     }
 
-    // Size & Stock dynamic form (Alpine.js)
+    // Form ukuran dan stok
     function sizeForm(initialStocks) {
         return {
-            allSizes: ['XS','S','M','L','XL','XXL','3XL','4XL','5XL','6XL','7XL'],
+            allSizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL', '6XL', '7XL'],
             selected: Object.keys(initialStocks || {}),
             stocks: initialStocks || {},
 
             onToggle(sz, event) {
                 if (event.target.checked) {
                     if (!this.stocks[sz]) {
-                        this.stocks[sz] = { stock_total: 0, stock_available: 0 };
+                        this.stocks[sz] = {
+                            stock_total: 0,
+                            stock_available: 0
+                        };
                     }
                 } else {
                     delete this.stocks[sz];

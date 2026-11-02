@@ -121,6 +121,7 @@ class ProductController extends Controller
             'brand'         => 'nullable|string|max:100',
             'rental_price'  => 'required|numeric|min:0',
             'deposit_price' => 'nullable|numeric|min:0',
+            'points' => 'nullable|integer|min:0',
             'condition'     => 'required|in:excellent,good,fair,poor',
             'status'        => 'required|in:available,maintenance,inactive',
             'notes'         => 'nullable|string',
@@ -130,6 +131,7 @@ class ProductController extends Controller
             'sizes'         => 'required|array|min:1',
             'sizes.*.stock_total'    => 'required|integer|min:0',
             'sizes.*.stock_available' => 'required|integer|min:0',
+            
         ]);
 
         foreach ($data['sizes'] as $sizeName => $stock) {
@@ -156,6 +158,7 @@ class ProductController extends Controller
         $data['stock_available'] = array_sum(array_column($data['sizes'], 'stock_available'));
         $sizesData               = $this->formatSizesData($data);
         $data['code']            = $this->generateCode();
+        $data['points'] = (int) ($data['points'] ?? 3);
 
         if ($request->hasFile('image')) {
             $data['photo'] = $request->file('image')->store('products', 'public');
@@ -189,6 +192,7 @@ class ProductController extends Controller
             'brand' => 'nullable|string|max:100',
             'rental_price' => 'required|numeric|min:0',
             'deposit_price' => 'nullable|numeric|min:0',
+            'points' => 'sometimes|required|integer|min:0',
             'condition' => 'required|in:excellent,good,fair,poor',
             'status' => 'sometimes|in:available,maintenance,inactive',
             'notes' => 'nullable|string',
@@ -198,6 +202,7 @@ class ProductController extends Controller
             'sizes' => 'sometimes|array|min:1',
             'sizes.*.stock_total'    => 'required|integer|min:0',
             'sizes.*.stock_available' => 'required|integer|min:0',
+            
         ]);
 
         foreach (($data['sizes'] ?? []) as $sizeName => $stock) {

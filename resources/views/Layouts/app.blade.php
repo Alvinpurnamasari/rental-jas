@@ -222,109 +222,109 @@
                     </a>
 
                    
-@php
-$user = auth()->user();
-$avatarUrl = $user?->avatar;
+                    @php
+                    $user = auth()->user();
+                    $avatarUrl = $user?->avatar;
 
-if (!empty($avatarUrl)) {
-    if (\Illuminate\Support\Str::startsWith($avatarUrl, ['http://', 'https://'])) {
-        // Foto dari URL eksternal
-        $avatarUrl = $avatarUrl;
-    } else {
-        // Foto yang tersimpan di Laravel storage
-        $avatarUrl = \Illuminate\Support\Facades\Storage::url($avatarUrl);
-    }
-}
-@endphp
+                    if (!empty($avatarUrl)) {
+                        if (\Illuminate\Support\Str::startsWith($avatarUrl, ['http://', 'https://'])) {
+                            // Foto dari URL eksternal
+                            $avatarUrl = $avatarUrl;
+                        } else {
+                            // Foto yang tersimpan di Laravel storage
+                            $avatarUrl = \Illuminate\Support\Facades\Storage::url($avatarUrl);
+                        }
+                    }
+                    @endphp
 
 
-                    <!-- Avatar dropdown -->
-                    <div class="relative" x-data="{ open: false }">
-<button
-    type="button"
-    @click="open = !open"
-    class="flex items-center gap-2 rounded-[16px] border border-slate-200 bg-white p-1.5 ds-transition hover:bg-blue-50"
-    aria-label="Buka menu profil"
->
-    <div
-        class="h-10 w-10 rounded-full flex items-center justify-center overflow-hidden font-bold text-white shrink-0"
-        style="background: linear-gradient(135deg, #2563eb, #1d4ed8);"
-    >
-        @if($avatarUrl)
-            <img
-                src="{{ $avatarUrl }}"
-                alt="Foto profil {{ $user->name }}"
-                class="h-full w-full rounded-full object-cover"
-                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-            >
-        @endif
+                                        <!-- Avatar dropdown -->
+                                        <div class="relative" x-data="{ open: false }">
+                    <button
+                        type="button"
+                        @click="open = !open"
+                        class="flex items-center gap-2 rounded-[16px] border border-slate-200 bg-white p-1.5 ds-transition hover:bg-blue-50"
+                        aria-label="Buka menu profil"
+                    >
+                        <div
+                            class="h-10 w-10 rounded-full flex items-center justify-center overflow-hidden font-bold text-white shrink-0"
+                            style="background: linear-gradient(135deg, #2563eb, #1d4ed8);"
+                        >
+                            @if($avatarUrl)
+                                <img
+                                    src="{{ $avatarUrl }}"
+                                    alt="Foto profil {{ $user->name }}"
+                                    class="h-full w-full rounded-full object-cover"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                >
+                            @endif
 
-        <span
-            class="h-full w-full items-center justify-center"
-            style="display: {{ $avatarUrl ? 'none' : 'flex' }};"
-        >
-            {{ strtoupper(substr($user->name ?? 'US', 0, 2)) }}
-        </span>
-    </div>
-</button>
+                            <span
+                                class="h-full w-full items-center justify-center"
+                                style="display: {{ $avatarUrl ? 'none' : 'flex' }};"
+                            >
+                                {{ strtoupper(substr($user->name ?? 'US', 0, 2)) }}
+                            </span>
+                        </div>
+                    </button>
 
-<div
-    x-show="open"
-    @click.outside="open = false"
-    @keydown.escape.window="open = false"
-    x-transition
-    class="absolute right-0 mt-3 w-64 rounded-[20px] border border-slate-200 bg-white shadow-xl p-3 ds-transition z-50"
-    style="display: none;"
->
-    <div class="px-2 py-2">
-        <div class="text-sm font-bold text-slate-800">
-            {{ $user->name }}
-        </div>
+                    <div
+                        x-show="open"
+                        @click.outside="open = false"
+                        @keydown.escape.window="open = false"
+                        x-transition
+                        class="absolute right-0 mt-3 w-64 rounded-[20px] border border-slate-200 bg-white shadow-xl p-3 ds-transition z-50"
+                        style="display: none;"
+                    >
+                        <div class="px-2 py-2">
+                            <div class="text-sm font-bold text-slate-800">
+                                {{ $user->name }}
+                            </div>
 
-        <div class="text-xs font-medium text-slate-500 break-all">
-            {{ $user->email }}
-        </div>
-    </div>
+                            <div class="text-xs font-medium text-slate-500 break-all">
+                                {{ $user->email }}
+                            </div>
+                        </div>
 
-    <div class="border-t my-2 border-slate-200"></div>
+                        <div class="border-t my-2 border-slate-200"></div>
 
-    <a
-        href="{{ route('profile.edit') }}"
-        class="flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-blue-50 ds-transition"
-    >
-        <i data-lucide="user" class="h-4 w-4"></i>
-        Profil Saya
-    </a>
+                        <a
+                            href="{{ route('profile.edit') }}"
+                            class="flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-blue-50 ds-transition"
+                        >
+                            <i data-lucide="user" class="h-4 w-4"></i>
+                            Profil Saya
+                        </a>
 
-    @if($user->isSuperAdmin())
-        <a
-            href="{{ route('settings.index') }}"
-            class="mt-1 flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-blue-50 ds-transition"
-        >
-            <i data-lucide="settings" class="h-4 w-4"></i>
-            Pengaturan
-        </a>
-    @endif
+                        @if($user->isSuperAdmin())
+                            <a
+                                href="{{ route('settings.index') }}"
+                                class="mt-1 flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-blue-50 ds-transition"
+                            >
+                                <i data-lucide="settings" class="h-4 w-4"></i>
+                                Pengaturan
+                            </a>
+                        @endif
 
-    <form
-        id="logoutDropdownForm"
-        method="POST"
-        action="{{ route('logout') }}"
-        class="mt-1"
-    >
-        @csrf
+                        <form
+                            id="logoutDropdownForm"
+                            method="POST"
+                            action="{{ route('logout') }}"
+                            class="mt-1"
+                        >
+                            @csrf
 
-        <button
-            type="button"
-            onclick="confirmAction('logoutDropdownForm', 'Keluar dari Sistem', 'Apakah Anda yakin ingin keluar dari web ini?', 'Ya, Keluar', '#dc2626')"
-            class="w-full flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 ds-transition"
-        >
-            <i data-lucide="log-out" class="h-4 w-4"></i>
-            Keluar
-        </button>
-    </form>
-</div>
-</div>
+                            <button
+                                type="button"
+                                onclick="confirmAction('logoutDropdownForm', 'Keluar dari Sistem', 'Apakah Anda yakin ingin keluar dari web ini?', 'Ya, Keluar', '#dc2626')"
+                                class="w-full flex items-center gap-2 rounded-[14px] px-2 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 ds-transition"
+                            >
+                                <i data-lucide="log-out" class="h-4 w-4"></i>
+                                Keluar
+                            </button>
+                        </form>
+                    </div>
+                    </div>
 
                 </div>
             </div>
@@ -339,31 +339,45 @@ if (!empty($avatarUrl)) {
         </section>
     </main>
 
+    
     <!-- Floating Quick Actions (Mobile) -->
-    <div class="fixed inset-x-0 bottom-0 z-40 lg:hidden" style="padding-bottom: max(.5rem, env(safe-area-inset-bottom));">
+    <div class="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+         style="padding-bottom: max(.5rem, env(safe-area-inset-bottom));">
         <div class="mx-3 mb-3 rounded-[20px] border border-slate-200 bg-white/88 backdrop-blur-xl shadow-[0_14px_50px_rgba(15,23,42,0.10)]">
             <div class="grid grid-cols-4 gap-1 p-2">
-                <a href="{{ route('dashboard') }}" class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 {{ request()->routeIs('dashboard') ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-transparent text-slate-500 hover:bg-blue-50 border border-transparent' }}" style="border-color: rgba(226,232,240,.95);">
+
+                <!-- Dashboard -->
+                <a href="{{ route('dashboard') }}"
+                   class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 {{ request()->routeIs('dashboard') ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-transparent text-slate-500 hover:bg-blue-50 border border-transparent' }}"
+                   style="border-color: rgba(226,232,240,.95);">
                     <i data-lucide="layout-dashboard" class="h-5 w-5"></i>
                     <span class="text-[10px] font-bold">Dashboard</span>
                 </a>
-                <a href="{{ route('rentals.scan') }}" class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 {{ request()->routeIs('rentals.scan', 'rentals.scan.show') ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-transparent text-slate-500 hover:bg-blue-50 border border-transparent' }}" style="border-color: rgba(226,232,240,.95);">
+
+                <!-- Penyewaan -->
+                <a href="{{ route('rentals.index') }}"
+                   class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 {{ request()->routeIs('rentals.index', 'rentals.create', 'rentals.show', 'rentals.edit') ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-transparent text-slate-500 hover:bg-blue-50 border border-transparent' }}"
+                   style="border-color: rgba(226,232,240,.95);">
+                    <i data-lucide="shirt" class="h-5 w-5"></i>
+                    <span class="text-[10px] font-bold">Penyewaan</span>
+                </a>
+
+                <!-- Scan QR -->
+                <a href="{{ route('rentals.scan') }}"
+                   class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 {{ request()->routeIs('rentals.scan', 'rentals.scan.show') ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-transparent text-slate-500 hover:bg-blue-50 border border-transparent' }}"
+                   style="border-color: rgba(226,232,240,.95);">
                     <i data-lucide="scan-line" class="h-5 w-5"></i>
                     <span class="text-[10px] font-bold">Scan QR</span>
                 </a>
-                <a href="{{ route('customers.index') }}" class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 {{ request()->routeIs('customers.*') ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-transparent text-slate-500 hover:bg-blue-50 border border-transparent' }}" style="border-color: rgba(226,232,240,.95);">
+
+                <!-- Pelanggan -->
+                <a href="{{ route('customers.index') }}"
+                   class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 {{ request()->routeIs('customers.*') ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-transparent text-slate-500 hover:bg-blue-50 border border-transparent' }}"
+                   style="border-color: rgba(226,232,240,.95);">
                     <i data-lucide="users" class="h-5 w-5"></i>
                     <span class="text-[10px] font-bold">Pelanggan</span>
                 </a>
-                <a href="{{ route('notifications.index') }}" class="ds-hover-lift flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 bg-transparent text-slate-500 hover:bg-blue-50 border border-slate-200 relative">
-                    <i data-lucide="bell" class="h-5 w-5"></i>
-                    <span class="text-[10px] font-bold">Notif</span>
-                    @if($unreadNotif > 0)
-                        <span class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
-                            {{ $unreadNotif > 9 ? '9+' : $unreadNotif }}
-                        </span>
-                    @endif
-                </a>
+
             </div>
         </div>
     </div>
