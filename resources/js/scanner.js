@@ -229,9 +229,15 @@ async function renderScanHistory(showAll = false) {
 }
 
 async function deleteScanHistory(id) {
-  if (!confirm('Hapus riwayat scan ini?')) {
-      return;
-  }
+  const confirmed = await window.showScanConfirm({
+    title: 'Hapus Riwayat Scan',
+    message: 'Apakah kamu yakin ingin menghapus riwayat scan ini? Tindakan ini tidak dapat dibatalkan.',
+    confirmText: 'Ya, Hapus'
+});
+
+if (!confirmed) {
+    return;
+}
 
   try {
       const csrfToken = document.querySelector(
@@ -258,9 +264,15 @@ async function deleteScanHistory(id) {
   }
 }
 async function deleteAllScanHistory() {
-  if (!confirm('Yakin ingin menghapus semua riwayat scan?')) {
-      return;
-  }
+  const confirmed = await window.showScanConfirm({
+    title: 'Hapus Semua Riwayat',
+    message: 'Semua riwayat scan akan dihapus secara permanen. Apakah kamu yakin ingin melanjutkan?',
+    confirmText: 'Hapus Semua'
+});
+
+if (!confirmed) {
+    return;
+}
 
   try {
       const csrfToken = document.querySelector(

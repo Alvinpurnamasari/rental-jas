@@ -263,69 +263,124 @@ class RentalController extends Controller
         return ['available' => true, 'url' => $url];
     }
 
+
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Rental::with(["customer", "items", "createdBy", "branch"]);
-        // Otomatis ubah status aktif menjadi terlambat
-// jika tanggal jatuh tempo sudah lewat.
-Rental::where('rental_status', 'active')
-->whereDate('return_due_date', '<', now()->toDateString())
-->update([
-    'rental_status' => Rental::STATUS_OVERDUE,
-]);
-
-// Kembalikan status terlambat menjadi aktif jika
-// tanggal jatuh tempo diperpanjang dan belum terlewati.
-Rental::where('rental_status', 'overdue')
-->whereDate('return_due_date', '>=', now()->toDateString())
-->update([
-    'rental_status' => Rental::STATUS_ACTIVE,
-]);
-
-        if ($user->role === "sales") {
-            $query->where("created_by", $user->id);
-        } elseif (!$user->isSuperAdmin() && $user->branch_access_type === 'specific') {
-            $query->whereIn("branch_id", $user->accessible_branch_ids);
+        $today = now()->toDateString();
+    
+        // Perbarui status keterlambatan otomatis.
+        Rental::where('rental_status', 'active')
+            ->whereDate('return_due_date', '<', $today)
+            ->update([
+                'rental_status' => Rental::STATUS_OVERDUE,
+            ]);
+    
+        // Kembalikan status overdue menjadi active jika
+        // tanggal pengembalian diperpanjang.
+        Rental::where('rental_status', 'overdue')
+            ->whereDate('return_due_date', '>=', $today)
+            ->update([
+                'rental_status' => Rental::STATUS_ACTIVE,
+            ]);
+    
+        $query = Rental::with([
+            'customer',
+            'items',
+            'createdBy',
+            'branch',
+        ]);
+    
+        // Hak akses sales dan cabang tetap dipertahankan.
+        if ($user->role === 'sales') {
+            $query->where('created_by', $user->id);
+        } elseif (
+            !$user->isSuperAdmin()
+            && $user->branch_access_type === 'specific'
+        ) {
+            $query->whereIn(
+                'branch_id',
+                $user->accessible_branch_ids
+            );
         }
-
-        
+    
+        // Filter status.
         if ($request->filled('status')) {
             if ($request->status === 'overdue') {
-                $query->whereIn('rental_status', ['active', 'overdue'])
-                    ->whereDate('return_due_date', '<', now()->toDateString());
-
+                $query->whereIn('rental_status', [
+                    'active',
+                    'overdue',
+                ])->whereDate('return_due_date', '<', $today);
+    
             } elseif ($request->status === 'unpaid_fine') {
-                // Penyewaan sudah dikembalikan tetapi masih memiliki sisa denda.
+                // Penyewaan dikembalikan tetapi masih memiliki denda.
                 $query->where('rental_status', 'returned')
                     ->where('fine_amount', '>', 0);
-                
+    
             } else {
                 $query->where('rental_status', $request->status);
             }
-        }
 
-
-        if ($request->has("search") && $request->search) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where("invoice_number", "like", "%$search%")
-                  ->orWhereHas("customer", function($q2) use ($search) {
-                      $q2->where("name", "like", "%$search%")
-                         ->orWhere("phone", "like", "%$search%");
-                  });
+        } else {
+            // Transaksi selain returned tetap ditampilkan.
+            // Transaksi returned tetap ditampilkan jika
+            // masih memiliki denda yang belum lunas.
+            $query->where(function ($q) {
+                $q->where('rental_status', '!=', 'returned')
+                    ->orWhere(function ($returned) {
+                        $returned->where('rental_status', 'returned')
+                            ->where('fine_amount', '>', 0)
+                            ->where('fine_status', '!=', 'paid');
+                    });
             });
         }
-
-        $sort = $request->get("sort", "created_at");
-        $order = $request->get("order", "desc");
-        $allowedSorts = ["created_at", "rental_date", "total_amount", "invoice_number"];
-        if (!in_array($sort, $allowedSorts, true)) $sort = "created_at";
-        $order = $order === "asc" ? "asc" : "desc";
-
-        $rentals = $query->orderBy($sort, $order)->paginate(15)->withQueryString();
-        return view("rentals.index", compact("rentals"));
+        
+    
+        // Pencarian invoice, nama pelanggan, dan nomor telepon.
+        if ($request->filled('search')) {
+            $search = $request->search;
+    
+            $query->where(function ($q) use ($search) {
+                $q->where(
+                    'invoice_number',
+                    'like',
+                    "%{$search}%"
+                )->orWhereHas('customer', function ($q2) use ($search) {
+                    $q2->where('name', 'like', "%{$search}%")
+                        ->orWhere(
+                            'phone',
+                            'like',
+                            "%{$search}%"
+                        );
+                });
+            });
+        }
+    
+        // Pengurutan yang diizinkan.
+        $sort = $request->get('sort', 'created_at');
+        $order = $request->get('order', 'desc');
+    
+        $allowedSorts = [
+            'created_at',
+            'rental_date',
+            'total_amount',
+            'invoice_number',
+        ];
+    
+        if (!in_array($sort, $allowedSorts, true)) {
+            $sort = 'created_at';
+        }
+    
+        $order = $order === 'asc' ? 'asc' : 'desc';
+    
+        $rentals = $query
+            ->orderBy($sort, $order)
+            ->paginate(15)
+            ->withQueryString();
+    
+        return view('rentals.index', compact('rentals'));
     }
+    
 
 
     public function create()

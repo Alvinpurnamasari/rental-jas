@@ -4,7 +4,21 @@
 @section('page-title', 'Edit Penyewaan')
 
 @section('content')
-<div class="max-w-4xl mx-auto space-y-5">
+<style>
+    .rental-edit-page { min-width: 0; }
+    .rental-edit-page .rental-edit-card { min-width: 0; border-radius: 1.1rem; }
+    .rental-edit-page .form-input { width: 100%; min-width: 0; box-sizing: border-box; }
+    .rental-edit-page select, .rental-edit-page input, .rental-edit-page textarea { max-width: 100%; }
+    .rental-edit-page #products-container > div { min-width: 0; }
+    @media (max-width: 639px) {
+        .rental-edit-page { padding-left: .75rem; padding-right: .75rem; }
+        .rental-edit-page .btn-primary, .rental-edit-page .btn-secondary { min-height: 44px; }
+        .rental-edit-page .flex.items-center.justify-between { flex-wrap: wrap; }
+        .rental-edit-page .flex.items-center.justify-between > a,
+        .rental-edit-page .flex.items-center.justify-between > button { flex: 1 1 auto; justify-content: center; }
+    }
+</style>
+<div class="rental-edit-page w-full max-w-4xl mx-auto px-3 sm:px-4 lg:px-0 py-4 sm:py-6 space-y-4 sm:space-y-5">
     <div class="flex items-center gap-3 mb-5">
         <a href="{{ route('rentals.show', $rental) }}" class="btn-secondary">
             <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -28,7 +42,7 @@
         @method('PATCH')
 
         <!-- Customer & Rental Info -->
-        <div class="card p-6">
+        <div class="card rental-edit-card p-4 sm:p-6">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="user" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Informasi Pelanggan & Penyewaan
@@ -95,7 +109,7 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                         </div>
-                            <form @submit.prevent="addCustomer()" class="p-6 space-y-4">
+                            <div class="p-6 space-y-4">
                                 <div>
                                     <label class="block text-sm font-medium mb-1.5 text-slate-700">Nama Lengkap <span class="text-red-400">*</span></label>
                                     <input type="text" x-model="newCustomer.name" class="form-input" :required="showAddModal">
@@ -118,7 +132,7 @@
                                 </div>
                             <div class="flex items-center justify-end gap-3 pt-2">
                                 <button type="button" @click="showAddModal = false" class="btn-secondary px-5 py-2.5" :disabled="addingCustomer">Batal</button>
-                                <button type="submit" class="btn-primary px-5 py-2.5" :disabled="addingCustomer">
+                                <button type="button" @click="addCustomer()" class="btn-primary px-5 py-2.5" :disabled="addingCustomer">
                                     <span x-show="!addingCustomer">Simpan Pelanggan</span>
                                     <span x-show="addingCustomer" class="flex items-center gap-2">
                                         <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -126,7 +140,7 @@
                                     </span>
                                 </button>
                             </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
 
@@ -144,18 +158,19 @@
                     <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Durasi (Hari) <span class="text-red-400">*</span></label>
                     <input type="number" name="duration_days" value="{{ old('duration_days', $rental->duration_days) }}" min="1" class="form-input" required>
                 </div>
-            </div>
+        </div> {{-- End customer & rental info grid --}}
+        </div> {{-- End customer & rental info card --}}
 
         <!-- Produk -->
-        <div class="border-t border-slate-200 mt-6 pt-6">
+        <div class="card rental-edit-card p-4 sm:p-6">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="package" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Produk
             </h3>
             <div id="products-container" class="space-y-3">
                 <template x-for="(item, index) in items" :key="index">
-                    <div class="flex gap-3 items-center flex-wrap">
-                        <select x-model="item.product_id" :name="`items[${index}][product_id]`" class="form-input flex-1" :class="{ 'is-error': itemsErrors[index]?.product_id || itemsErrors[index]?.stock_exceeded }" @change="onProductChange(index)" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
+                    <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_6rem_auto] gap-3 items-start sm:items-center rounded-xl border border-slate-100 p-3 sm:border-0 sm:p-0">
+                        <select x-model="item.product_id" :name="`items[${index}][product_id]`" class="form-input w-full min-w-0" :class="{ 'is-error': itemsErrors[index]?.product_id || itemsErrors[index]?.stock_exceeded }" @change="onProductChange(index)" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
                             <option value="">Pilih Produk</option>
                             @foreach ($products as $product)
                                 @php
@@ -169,17 +184,16 @@
                                     data-deposit-price="{{ $product->deposit_price }}"
                                     data-stock="{{ $product->stock_available }}"
                                     data-sizes='@json($sizesData)'
-                                    :selected="String(item.product_id) === String({{ $product->id }})"
-                                    {{ $isOut ? 'disabled' : '' }}
+                                    {{ $isOut && !$rental->items->contains('product_id', $product->id) ? 'disabled' : '' }}
                                 >
-                                    {{ $product->name }} (Stok: {{ $product->stock_available }}){{ $isOut ? ' (Habis)' : '' }}
+                                    {{ $product->name }} (Stok: {{ $product->stock_available }}){{ $isOut && !$rental->items->contains('product_id', $product->id) ? ' (Habis)' : '' }}
                                     - Rp {{ number_format($product->rental_price, 0, ',', '.') }}/hari
                                 </option>
                             @endforeach
                         </select>
 
-                        <div class="flex items-center gap-1">
-                            <select x-model="item.product_size" :name="`items[${index}][product_size]`" class="form-input w-32" :class="{ 'is-error': itemsErrors[index]?.product_size }" @change="onSizeChange(index)">
+                        <div class="flex min-w-0 items-center gap-2">
+                            <select x-model="item.product_size" :name="`items[${index}][product_size]`" class="form-input w-full sm:w-32 min-w-0" :class="{ 'is-error': itemsErrors[index]?.product_size }" @change="onSizeChange(index)">
                                 <option value="">Pilih Ukuran</option>
                                 <template x-for="sz in sizesForItem(index)" :key="sz">
                                     <option :value="sz" x-text="sz"></option>
@@ -188,7 +202,7 @@
                             <span class="text-xs text-slate-500" x-show="item.product_size" x-text="'Stok: ' + getStockForProductAndSize(item.product_id, item.product_size)"></span>
                         </div>
 
-                        <input type="number" x-model="item.quantity" :name="`items[${index}][quantity]`" value="1" min="1" class="form-input w-24" :max="item.product_size ? getStockForProductAndSize(item.product_id, item.product_size) : ''" :class="{ 'is-error': itemsErrors[index]?.quantity || itemsErrors[index]?.stock_exceeded }" @input="onQtyInput(index)" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
+                        <input type="number" x-model="item.quantity" :name="`items[${index}][quantity]`" value="1" min="1" class="form-input w-full sm:w-24" :max="item.product_size ? getStockForProductAndSize(item.product_id, item.product_size) : ''" :class="{ 'is-error': itemsErrors[index]?.quantity || itemsErrors[index]?.stock_exceeded }" @input="onQtyInput(index)" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
                         <p x-show="itemsErrors[index]?.stock_exceeded" x-transition class="text-xs text-red-400 mt-1" x-text="itemsErrors[index]?.stock_message || 'Qty melebihi stok tersedia'"></p>
 
                         <button type="button" x-show="items.length > 1 && !formLocked" @click="removeItem(index)" class="btn-danger px-3 py-2" :disabled="formLocked" title="{{ $isFormLocked ? 'Tidak dapat diubah karena penyewaan sudah dibayar/berjalan' : '' }}">
@@ -203,50 +217,8 @@
             </button>
         </div>
 
-        <!-- Diskon & Status & Catatan -->
-            <div class="border-t border-slate-200 mt-6 pt-6">
-            <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
-                <i data-lucide="file-text" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
-                Diskon & Status & Catatan
-            </h3>
-            <div class="grid sm:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Diskon (Rp)</label>
-                    <input type="number" name="discount" value="{{ old('discount', $rental->discount) }}" min="0" class="form-input">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Status</label>
-                    <select name="rental_status" class="form-input">
-                        @foreach(['waiting'=>'Menunggu Pembayaran','active'=>'Disewa','overdue'=>'Terlambat','returned'=>'Dikembalikan','cancelled'=>'Dibatalkan'] as $key=>$label)
-                            <option value="{{ $key }}" {{ (string)$rental->rental_status === (string)$key ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Payment Status</label>
-                    <select name="payment_status" class="form-input">
-                        @foreach(['unpaid'=>'Belum Bayar','partial'=>'Sebagian','paid'=>'Lunas'] as $key=>$label)
-                            <option value="{{ $key }}" {{ (string)$rental->payment_status === (string)$key ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="sm:col-span-2">
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Deposit</label>
-                    <input type="number" name="deposit" value="{{ old('deposit', $rental->deposit ?? 0) }}" min="0" class="form-input">
-                </div>
-
-                <div class="sm:col-span-2">
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Catatan</label>
-                    <textarea name="notes" class="form-input" rows="3">{{ old('notes', $rental->notes) }}</textarea>
-                </div>
-            </div>
-            </div>
-
         <!-- Jaminan & Pembayaran -->
-        <div class="border-t border-slate-200 mt-6 pt-6">
+        <div class="card rental-edit-card p-4 sm:p-6">
             <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
                 <i data-lucide="file-text" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
                 Jaminan & Pembayaran
@@ -395,25 +367,67 @@
                     <p class="text-xs text-slate-400 mt-1">Format: JPG/PNG. Maks 2MB. Biarkan kosong jika tidak ingin mengubah.</p>
                 </div>
                 @endif
-            </div>
+            </div> {{-- End guarantee & payment grid --}}
+        </div> {{-- End guarantee & payment card --}}
 
-        </div>
-        </div>
+        <!-- Diskon & Status & Catatan (existing) -->
+        <div class="card rental-edit-card p-4 sm:p-6">
+            <h3 class="font-playfair font-semibold text-base mb-5" style="color: var(--text-dark)">
+                <i data-lucide="file-text" class="w-4 h-4 inline mr-2" style="color: var(--primary)"></i>
+                Diskon & Status & Catatan
+            </h3>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Diskon (Rp)</label>
+                    <input type="number" name="discount" value="{{ old('discount', $rental->discount) }}" min="0" class="form-input">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Status</label>
+                    <select name="rental_status" class="form-input">
+                        @foreach(['waiting'=>'Menunggu Pembayaran','active'=>'Disewa','overdue'=>'Terlambat','returned'=>'Dikembalikan','cancelled'=>'Dibatalkan'] as $key=>$label)
+                            <option value="{{ $key }}" {{ (string)$rental->rental_status === (string)$key ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Payment Status</label>
+                    <select name="payment_status" class="form-input">
+                        @foreach(['unpaid'=>'Belum Bayar','partial'=>'Sebagian','paid'=>'Lunas'] as $key=>$label)
+                            <option value="{{ $key }}" {{ (string)$rental->payment_status === (string)$key ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Deposit</label>
+                    <input type="number" name="deposit" value="{{ old('deposit', $rental->deposit ?? 0) }}" min="0" class="form-input">
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium mb-1.5" style="color: var(--text-dark)">Catatan</label>
+                    <textarea name="notes" class="form-input" rows="3">{{ old('notes', $rental->notes) }}</textarea>
+                </div>
+            </div> {{-- End discount/status/notes grid --}}
+        </div> {{-- End discount/status/notes card --}}
 
         <!-- Submit -->
-        <div class="flex items-center justify-between mt-6 pt-5 border-t border-slate-200 gap-4">
-            <a href="{{ route('rentals.show', $rental) }}"
-               class="btn-secondary inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl whitespace-nowrap">
+        <div class="flex justify-between mt-4 pt-3">
+            <a href="{{ route('rentals.show', $rental) }}" class="btn-secondary">
                 <i data-lucide="x" class="w-4 h-4"></i>
-                <span>Batal</span>
+                Batal
             </a>
             <button type="submit"
-                    :disabled="submitting || (photoState.file && !photoState.verified)"
-                    :class="{ 'opacity-60 pointer-events-none': submitting || (photoState.file && !photoState.verified) }"
-                    class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl whitespace-nowrap text-white font-semibold shadow-sm"
-                    style="background-color: #2563eb; min-width: 190px; width: auto; flex: 0 0 auto; font-size: 14px; line-height: 1.25rem;">
-                <i data-lucide="save" class="w-4 h-4 shrink-0"></i>
-                <span style="display: inline !important; visibility: visible !important; opacity: 1 !important; color: #ffffff !important; width: auto !important; min-width: max-content !important; flex: 0 0 auto !important;">Simpan Perubahan</span>
+                    :disabled="photoState.file && !photoState.verified"
+                    :class="{
+                        'opacity-60 pointer-events-none': photoState.file && !photoState.verified,
+                    }"
+                    class="btn-primary px-8">
+                <span class="flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Simpan Perubahan
+                </span>
             </button>
         </div>
     </form>
@@ -426,14 +440,17 @@
      return {
          formLocked: formLocked,
          submitting: false,
-        items: [
-            @php
-                $rentalItems = $rental->items;
-            @endphp
-            @foreach($rentalItems as $rentalItem)
-            { product_id: {{ $rentalItem->product_id ?? 'null' }}, product_size: '{{ $rentalItem->product_size }}', quantity: {{ (int)$rentalItem->quantity }} },
-            @endforeach
-        ],
+        // Muat produk dari input sebelumnya jika validasi gagal; jika tidak,
+        // gunakan item rental yang tersimpan di database.
+        items: @js(old('items', $rental->items->map(fn($rentalItem) => [
+    'product_id' => (string) ($rentalItem->product_id ?? ''),
+    'product_size' => (string) ($rentalItem->product_size ?? ''),
+    'quantity' => (int) ($rentalItem->quantity ?? 1),
+])->values()->all() ?: [[
+    'product_id' => '',
+    'product_size' => '',
+    'quantity' => 1,
+]])),
          itemsErrors: [],
         productSizesMap: @json($products->mapWithKeys(fn($p) => [$p->id => ($p->sizesData ?: ($p->size ? [$p->size => ['stock_total' => $p->stock_total, 'stock_available' => $p->stock_available]] : []))])->toArray()),
         dragOver: false,
@@ -460,6 +477,60 @@
         guaranteeType: '{{ $guarantee?->type ?? '' }}',
         guaranteeDeposit: '{{ $guarantee?->deposit_amount ?? '' }}',
 
+        init() {
+    this.items = (Array.isArray(this.items) ? this.items : []).map(item => ({
+        product_id: String(item.product_id ?? ''),
+        product_size: String(item.product_size ?? ''),
+        quantity: Math.max(1, parseInt(item.quantity ?? 1, 10) || 1),
+    }));
+
+    if (this.items.length === 0) {
+        this.items = [{
+            product_id: '',
+            product_size: '',
+            quantity: 1
+        }];
+    }
+
+    this.$nextTick(() => {
+        this.items.forEach((item, index) => {
+            const productSelect = this.$el.querySelector(
+                `[name="items[${index}][product_id]"]`
+            );
+
+            if (productSelect) {
+                productSelect.value = item.product_id;
+                productSelect.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
+            }
+        });
+
+        this.$nextTick(() => {
+            this.items.forEach((item, index) => {
+                const productSelect = this.$el.querySelector(
+                    `[name="items[${index}][product_id]"]`
+                );
+
+                const sizeSelect = this.$el.querySelector(
+                    `[name="items[${index}][product_size]"]`
+                );
+
+                if (productSelect) {
+                    productSelect.value = item.product_id;
+                }
+
+                if (sizeSelect) {
+                    sizeSelect.value = item.product_size;
+                    sizeSelect.dispatchEvent(new Event('change', {
+                        bubbles: true
+                    }));
+                }
+            });
+        });
+    });
+},
+
         getStockForProduct(productId) {
             if (!productId) return 0;
             const option = Array.from(document.querySelectorAll('#products-container select[name^="items"][name$="[product_id]"] option'))
@@ -479,7 +550,11 @@
             const sizes = this.productSizesMap[productId];
             if (!sizes) return [];
             const order = ['XS','S','M','L','XL','XXL','3XL','4XL','5XL','6XL','7XL'];
-            return Object.keys(sizes).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+            return Object.keys(sizes).sort((a, b) => {
+                const ai = order.indexOf(String(a).toUpperCase());
+                const bi = order.indexOf(String(b).toUpperCase());
+                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            });
         },
 
         onProductChange(index) {
@@ -623,7 +698,7 @@
         },
 
         addItem() {
-            this.items.push({ product_id: null, product_size: '', quantity: 1 });
+            this.items.push({ product_id: '', product_size: '', quantity: 1 });
         },
 
         removeItem(index) {

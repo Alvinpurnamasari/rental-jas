@@ -17,6 +17,11 @@
     @vite(['resources/css/app.css', 'resources/css/customers.css', 'resources/js/app.js'])
     @stack('styles')
     @stack('head')
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
 </head>
 
 <body class="min-h-screen overflow-x-hidden font-sans" style="background: var(--bg); color: var(--text);">

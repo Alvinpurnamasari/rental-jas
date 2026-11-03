@@ -357,4 +357,140 @@
   }
 </style>
 
+<!-- Modal Konfirmasi Hapus Riwayat Scan -->
+<div id="scan-confirm-modal"
+     class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="scan-confirm-title">
+
+    <div id="scan-confirm-panel"
+         class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+
+        <div class="flex items-start gap-4">
+            <div id="scan-confirm-icon"
+                 class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                <svg class="h-6 w-6"
+                     fill="none"
+                     stroke="currentColor"
+                     viewBox="0 0 24 24">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/>
+                </svg>
+            </div>
+
+            <div class="min-w-0 flex-1">
+                <h3 id="scan-confirm-title"
+                    class="text-lg font-bold text-slate-800">
+                    Konfirmasi Penghapusan
+                </h3>
+
+                <p id="scan-confirm-message"
+                   class="mt-2 text-sm leading-6 text-slate-600">
+                    Apakah kamu yakin ingin menghapus riwayat ini?
+                </p>
+            </div>
+
+            <button type="button"
+                    onclick="closeScanConfirm(false)"
+                    class="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Tutup modal">
+                <svg class="h-5 w-5"
+                     fill="none"
+                     stroke="currentColor"
+                     viewBox="0 0 24 24">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="mt-7 flex justify-end gap-3">
+            <button type="button"
+                    onclick="closeScanConfirm(false)"
+                    class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                Batal
+            </button>
+
+            <button id="scan-confirm-submit"
+                    type="button"
+                    onclick="closeScanConfirm(true)"
+                    class="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700">
+                Ya, Hapus
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let scanConfirmResolver = null;
+
+    window.showScanConfirm = function ({
+        title = 'Konfirmasi Penghapusan',
+        message = 'Apakah kamu yakin ingin menghapus riwayat ini?',
+        confirmText = 'Ya, Hapus'
+    } = {}) {
+        const modal = document.getElementById('scan-confirm-modal');
+
+        if (!modal) {
+            return Promise.resolve(
+                window.confirm(message)
+            );
+        }
+
+        // Hindari modal bertumpuk.
+        if (scanConfirmResolver) {
+            window.closeScanConfirm(false);
+        }
+
+        document.getElementById('scan-confirm-title').textContent = title;
+        document.getElementById('scan-confirm-message').textContent = message;
+        document.getElementById('scan-confirm-submit').textContent = confirmText;
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        return new Promise((resolve) => {
+            scanConfirmResolver = resolve;
+        });
+    };
+
+    window.closeScanConfirm = function (confirmed) {
+        const modal = document.getElementById('scan-confirm-modal');
+        const resolver = scanConfirmResolver;
+
+        scanConfirmResolver = null;
+
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        if (resolver) {
+            resolver(confirmed);
+        }
+    };
+
+    document.getElementById('scan-confirm-modal')
+        ?.addEventListener('click', function (event) {
+            if (event.target === this) {
+                window.closeScanConfirm(false);
+            }
+        });
+
+    document.addEventListener('keydown', function (event) {
+        if (
+            event.key === 'Escape' &&
+            !document.getElementById('scan-confirm-modal')
+                ?.classList.contains('hidden')
+        ) {
+            window.closeScanConfirm(false);
+        }
+    });
+</script>
+
 @endsection
