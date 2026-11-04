@@ -155,9 +155,14 @@
                                 ];
                             @endphp
                             <div class="flex flex-wrap justify-center gap-1">
-                                <span class="badge {{ $statusClasses[$rental->rental_status] ?? 'badge-gray' }}">
-                                    {{ $statusLabels[$rental->rental_status] ?? $rental->rental_status }}
-                                </span>
+                                @if(!(
+                                    $rental->rental_status === 'returned'
+                                    && $rental->fine_status === \App\Models\Rental::FINE_UNPAID
+                                ))
+                                    <span class="badge {{ $statusClasses[$rental->rental_status] ?? 'badge-gray' }}">
+                                        {{ $statusLabels[$rental->rental_status] ?? $rental->rental_status }}
+                                    </span>
+                                @endif
                                 @if((float) $rental->fine_amount > 0)
                                     @if($rental->fine_status === \App\Models\Rental::FINE_UNPAID)
                                         <span class="badge badge-red">Denda Belum Lunas</span>
