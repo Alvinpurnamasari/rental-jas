@@ -6,9 +6,32 @@
 @section('content')
     @php
         $money = fn ($amount) => 'Rp ' . number_format((float) ($amount ?? 0), 0, ',', '.');
-        $items = $history->items_snapshot ?? [];
-        $payments = $history->payments_snapshot ?? [];
-        $guarantees = $history->guarantees_snapshot ?? [];
+        // Utamakan snapshot jika tersedia.
+// Jika kosong, ambil langsung dari relasi items pada Rental.
+$items = $history->items_snapshot ?? [];
+
+if (empty($items)) {
+    $items = $history->items->map(function ($item) use ($history) {
+        return [
+            'product_name' => $item->product_name
+                ?? $item->product?->name
+                ?? 'Produk',
+
+            'product_size' => $item->product_size ?? '-',
+            'quantity' => $item->quantity ?? 0,
+            'price_per_day' => $item->price_per_day ?? 0,
+            'duration_days' => $item->duration_days
+                ?? $history->duration_days,
+            'subtotal' => $item->subtotal ?? 0,
+            'return_condition' => $item->return_condition ?? null,
+            'return_notes' => $item->return_notes ?? null,
+            'damage_fee' => $item->damage_fee ?? 0,
+        ];
+    })->all();
+}
+
+$payments = $history->payments_snapshot ?? $history->payments->toArray();
+$guarantees = $history->guarantees_snapshot ?? $history->guarantees->toArray();
         $grandTotal = (float) $history->total_amount + (float) $history->fine_amount;
         $totalPaid = (float) $history->paid_amount + (float) $history->fine_paid_amount;
     @endphp

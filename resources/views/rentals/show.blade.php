@@ -9,9 +9,9 @@
     <div
         x-data="returnOperationalDashboard()"
         x-init="init()"
-        class="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6"
+        class="rental-detail-page mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-6 px-4 py-6"
     >
-        <div class="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="rental-detail-summary rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div class="flex items-start gap-4">
                     <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
@@ -21,7 +21,7 @@
                     </div>
                     <div>
                         <p class="text-sm font-medium text-slate-500">Detail Penyewaan</p>
-                        <h1 class="text-2xl font-bold text-slate-900">Invoice <span x-text="rental.invoice_number"></span></h1>
+                        <h1 class="mt-1 min-w-0 text-xl font-bold leading-tight text-slate-900 sm:text-2xl">Invoice <span class="mt-1 block break-all" x-text="rental.invoice_number"></span></h1>
                         <p class="mt-1 text-sm text-slate-500">Panel operasional pengembalian dengan tampilan modern SewaJas.</p>
                     </div>
                 </div>
@@ -71,27 +71,6 @@
                             Mulai Sewa / Serah Terima
                         </button>
 
-                        {{-- Tombol Batalkan dengan konfirmasi SweetAlert2 --}}
-                        @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
-                            <form
-                                method="POST"
-                                action="{{ route('rentals.cancel', $rental) }}"
-                                class="inline"
-                                onsubmit="return confirmCancelRental(event, this)"
-                            >
-                                @csrf
-                                @method('PATCH')
-
-                                <button
-                                    type="submit"
-                                    class="rental-action-btn inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700"
-                                >
-                                    <i data-lucide="x-circle" class="w-4 h-4"></i>
-                                    Batalkan
-                                </button>
-                            </form>
-                        @endif
-
                     </div>
                 </template>
 
@@ -113,53 +92,17 @@
                 
 
                 @php
-                // Status yang diperbolehkan untuk dihapus.
-                $isDeleteStatusAllowed = in_array(
-                    $rental->rental_status,
-                    ['cancelled', 'returned'],
-                    true
-                ) || (
-                    $rental->rental_status === 'waiting'
-                    && $rental->payment_status === 'unpaid'
-                );
-            
-                // Total tagihan sewa.
-                $totalSewa = max(0, (float) $rental->total_amount);
-            
-                $dibayarSewa = (float) $rental->payments()
-                    ->whereIn('type', ['rental', 'deposit'])
-                    ->sum('amount');
-            
-                $sisaSewa = max(0, $totalSewa - $dibayarSewa);
-            
-                // Total denda.
-                $totalDenda = max(0, (float) $rental->late_fee)
-                    + max(0, (float) $rental->fine_amount);
-            
-                $dibayarDenda = (float) $rental->payments()
-                    ->whereIn('type', ['late_fee', 'damage_fee'])
-                    ->sum('amount');
-            
-                $sisaDenda = max(0, $totalDenda - $dibayarDenda);
-            
-                // Kewajiban pengembalian uang.
-                $sisaKembalian = max(
-                    0,
-                    (float) ($rental->change_amount ?? 0)
-                    - (float) ($rental->refund_given ?? 0)
-                );
-            
-                // Tombol muncul jika status sesuai dan tidak ada kewajiban tersisa.
-                $canDelete = (
-                $rental->rental_status === 'cancelled'
-                || (
-                    $isDeleteStatusAllowed
-                    && $sisaSewa <= 0
-                    && $sisaDenda <= 0
-                    && $sisaKembalian <= 0
-                )
-            );
-            @endphp
+                    // Hanya Booking yang belum dibayar dan belum memiliki riwayat pembayaran
+                    // yang boleh dihapus.
+                    $hasPaymentHistory = $rental->payments()->exists();
+
+                    $canDelete = (
+                        $rental->rental_status === 'waiting'
+                        && $rental->payment_status === 'unpaid'
+                        && !$hasPaymentHistory
+                        && (float) ($rental->change_amount ?? 0) <= (float) ($rental->refund_given ?? 0)
+                    );
+                @endphp
             
             @if(
                 (auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
@@ -192,7 +135,7 @@
             function confirmDeleteRental(invoiceNumber, rentalStatus) {
                 const isWaiting = rentalStatus === 'waiting';
                 const warningText = isWaiting
-                    ? 'Apakah Anda yakin ingin menghapus penyewaan <strong>' + invoiceNumber + '</strong>?<br>Penyewaan ini belum ada pembayaran dan stok produk akan dikembalikan.<br>Tindakan ini tidak dapat dibatalkan.'
+                    ? 'Apakah Anda yakin ingin menghapus penyewaan <strong>' + invoiceNumber + '</strong>?<br>Booking ini belum memiliki pembayaran.<br>Tindakan ini tidak dapat dibatalkan.'
                     : 'Apakah Anda yakin ingin menghapus penyewaan <strong>' + invoiceNumber + '</strong>?<br>Semua data terkait akan ikut terhapus.<br>Tindakan ini tidak dapat dibatalkan.';
 
                 Swal.fire({
@@ -285,9 +228,9 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <div class="space-y-6 xl:col-span-2">
-                <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
+            <div class="min-w-0 space-y-4 sm:space-y-6 xl:col-span-2">
+                <div class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                     <div class="mb-4 flex items-center gap-2">
                         <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -297,7 +240,7 @@
                         <h2 class="text-lg font-bold text-slate-900">Informasi Rental</h2>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                    <div class="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3 lg:grid-cols-3">
                         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pelanggan</p>
                             <p class="mt-2 break-words text-sm font-semibold text-slate-900" x-text="rental.customer.name"></p>
@@ -326,7 +269,7 @@
                     </div>
                 </div>
 
-                <div x-show="rental.notes" x-transition class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+                <div x-show="rental.notes" x-transition class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                     <div class="mb-4 flex items-center gap-2">
                         <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,7 +281,7 @@
                     <p class="text-sm text-slate-700 whitespace-pre-wrap" x-text="rental.notes"></p>
                 </div>
 
-                <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                     <div class="mb-4 flex items-center gap-2">
                         <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,7 +330,7 @@
                 </div>
 
                 <template x-if="showOperationalPanel">
-                    <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                         <div class="mb-4 flex items-center justify-between gap-4">
                             <div class="flex items-center gap-2">
                                 <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
@@ -477,7 +420,7 @@
                     </div>
                 </template>
 
-                <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                     <div class="mb-4 flex items-center gap-2">
                         <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -510,7 +453,7 @@
                 </div>
 
                     @if(auth()->user()->isSuperAdmin())
-                    <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                         <div class="mb-4 flex items-center gap-2">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
@@ -552,8 +495,8 @@
                 @endif
             </div>
 
-            <div class="space-y-6">
-                <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="min-w-0 space-y-4 sm:space-y-6">
+                <div class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                     <div class="mb-4 flex items-center gap-2">
                         <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -601,7 +544,7 @@
                     </div>
                 </div>
 
-                <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                     <div class="mb-4 flex items-center gap-2">
                         <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -754,7 +697,7 @@ x-show="rental.rental_status !== 'cancelled' && totalRemaining > 0"
                 </div>
 
                 <template x-if="rental.change_amount > 0 && rental.refund_given === 0">
-                    <div class="rounded-[20px] border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                    <div class="rental-detail-panel rounded-[20px] border border-amber-200 bg-amber-50 p-4 shadow-sm sm:p-6">
                         <div class="mb-4 flex items-center gap-2">
                             <div class="rounded-xl bg-amber-100 p-2 text-amber-600">
                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -774,7 +717,7 @@ x-show="rental.rental_status !== 'cancelled' && totalRemaining > 0"
                 </template>
 
 @if ($rental->rental_status != 'cancelled' && ($rental->payment_status !== 'paid' || ($rental->fine_status !== 'paid' && $rental->fine_status !== 'none')))
-                    <div class="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="rental-detail-panel rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                         <div class="mb-4 flex items-center gap-2">
                             <div class="rounded-xl bg-blue-50 p-2 text-blue-600">
                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1824,5 +1767,130 @@ async function shareRentalReceiptImage() {
     }
 }
 </script>
+
+
+    <style>
+        .rental-detail-page,
+        .rental-detail-page * {
+            box-sizing: border-box;
+        }
+
+        .rental-detail-page {
+            overflow-x: clip;
+        }
+
+        .rental-detail-page > *,
+        .rental-detail-page .min-w-0 {
+            min-width: 0;
+        }
+
+        @media (max-width: 640px) {
+            .rental-detail-page {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 16px;
+                padding-bottom: 110px; /* ruang agar konten terakhir tidak tertutup navigasi bawah mobile */
+                gap: 16px;
+            }
+
+            .rental-detail-summary {
+                padding: 16px;
+                border-radius: 18px;
+            }
+
+            .rental-detail-summary > div:first-child {
+                gap: 14px;
+            }
+
+            .rental-detail-summary .rental-detail-actions {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .rental-detail-actions > a,
+            .rental-detail-actions > button,
+            .rental-detail-actions > div {
+                min-width: 0;
+                max-width: 100%;
+            }
+
+            .rental-detail-actions > a:first-child {
+                grid-column: 1 / -1;
+            }
+
+            .rental-detail-actions .rental-action-btn,
+            .rental-detail-actions .btn-secondary {
+                display: inline-flex;
+                width: 100%;
+                min-height: 42px;
+                justify-content: center;
+                gap: 6px;
+                padding: 10px 8px;
+                text-align: center;
+                white-space: normal;
+                overflow-wrap: anywhere;
+                font-size: 12px;
+            }
+
+            .rental-detail-actions > div:has(> button) {
+                grid-column: 1 / -1;
+                width: 100%;
+            }
+
+            .rental-detail-actions > div > button {
+                width: 100%;
+                justify-content: center;
+                white-space: normal;
+                text-align: center;
+            }
+
+            .rental-detail-panel {
+                padding: 16px;
+                border-radius: 18px;
+            }
+
+            .rental-detail-page h2 {
+                font-size: 16px;
+                line-height: 1.35;
+            }
+
+            .rental-detail-page img {
+                max-width: 100%;
+            }
+
+            .rental-detail-page input,
+            .rental-detail-page select,
+            .rental-detail-page textarea,
+            .rental-detail-page button {
+                max-width: 100%;
+            }
+
+            .rental-detail-page .overflow-x-auto {
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .rental-detail-summary {
+                padding: 14px;
+            }
+
+            .rental-detail-summary .flex.items-start.gap-4 {
+                gap: 10px;
+            }
+
+            .rental-detail-summary .flex.h-12.w-12 {
+                width: 40px;
+                height: 40px;
+                flex: 0 0 40px;
+            }
+
+            .rental-detail-summary .flex.flex-wrap.gap-2 > span {
+                padding: 7px 10px;
+                font-size: 11px;
+            }
+        }
+    </style>
 
 @endsection
