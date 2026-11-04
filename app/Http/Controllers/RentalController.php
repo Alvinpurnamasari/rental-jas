@@ -37,8 +37,10 @@ class RentalController extends Controller
 
         abort_unless(
             $user->isSuperAdmin()
-                || ($user->isSales() && (int) $rental->created_by === (int) $user->id)
-                || ($user->isAdminToko() && in_array((int) $rental->branch_id, $allowedBranchIds, true)),
+                || (
+                    ($user->isSales() || $user->isAdminToko())
+                    && in_array((int) $rental->branch_id, $allowedBranchIds, true)
+                ),
             403
         );
 
@@ -117,15 +119,20 @@ class RentalController extends Controller
         }
 
         if ($user->isSales()) {
+            $branchIds = $user->accessible_branch_ids;
+
+            abort_if(
+                empty($branchIds),
+                403,
+                'Akun Sales belum memiliki cabang yang ditetapkan.'
+            );
+
+            // Semua Sales dalam cabang yang sama dapat melihat log penyewaan cabangnya.
             return $query->whereHas('rental', fn ($rental) =>
-                $rental->where('created_by', $user->id)
+                $rental->whereIn('branch_id', $branchIds)
             );
         }
 
-        if ($user->role === 'sales') {
-            return null;
-        }
-        
         abort(403);
     }
 
@@ -291,18 +298,29 @@ class RentalController extends Controller
             'branch',
         ]);
     
-        // Hak akses sales dan cabang tetap dipertahankan.
-        if ($user->role === 'sales') {
-            $query->where('created_by', $user->id);
-        } elseif (
-            !$user->isSuperAdmin()
-            && $user->branch_access_type === 'specific'
-        ) {
-            $query->whereIn(
-                'branch_id',
-                $user->accessible_branch_ids
-            );
-        }
+     // Hak akses penyewaan berdasarkan cabang.
+if ($user->isSales()) {
+    // Sales dapat melihat semua transaksi dalam cabang yang diakses.
+    $branchIds = $user->accessible_branch_ids;
+
+    abort_if(
+        empty($branchIds),
+        403,
+        'Akun Sales belum memiliki cabang yang ditetapkan.'
+    );
+
+    $query->whereIn('branch_id', $branchIds);
+
+} elseif (
+    !$user->isSuperAdmin()
+    && $user->branch_access_type === 'specific'
+) {
+    // Pertahankan pembatasan cabang khusus untuk Admin Toko.
+    $query->whereIn(
+        'branch_id',
+        $user->accessible_branch_ids
+    );
+}
     
         // Filter status.
         if ($request->filled('status')) {
@@ -702,96 +720,52 @@ class RentalController extends Controller
 
         return redirect()->route("rentals.show", $rental)->with("success", "Penyewaan berhasil diperbarui!");
     }
+       public function destroy(Rental $rental)
+{
+    $user = Auth::user();
 
-    public function destroy(Rental $rental)
-    {
-        $user = Auth::user();
-    
-        if (!$user || (!$user->isSuperAdmin() && !$user->isAdminToko())) {
-            abort(403);
+    // Hak akses tetap dipertahankan.
+    if (!$user || (!$user->isSuperAdmin() && !$user->isAdminToko())) {
+        abort(403);
+    }
+
+    abort_unless(
+        $user->isSuperAdmin() || $user->canAccessBranch((int) $rental->branch_id),
+        403
+    );
+
+    $result = DB::transaction(function () use ($rental) {
+
+        // Kunci data agar tidak berubah saat proses penghapusan.
+        $rental = Rental::whereKey($rental->id)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        // Hanya Booking yang boleh dihapus.
+        if ($rental->rental_status !== Rental::STATUS_WAITING) {
+            return [
+                'success' => false,
+                'message' => 'Penyewaan yang sudah berjalan, dikembalikan, atau selesai tidak dapat dihapus.'
+            ];
         }
-    
-        abort_unless(
-            $user->isSuperAdmin() || $user->canAccessBranch((int) $rental->branch_id),
-            403
-        );
-    
-        // 1. Cegah penghapusan jika penyewaan masih aktif.
-        if (in_array($rental->rental_status, ['active', 'overdue'], true)) {
-            return back()->with(
-                'error',
-                'Penyewaan tidak dapat dihapus karena masih aktif atau terlambat.'
-            );
+
+        // Hanya transaksi yang benar-benar belum bayar.
+        if ($rental->payment_status !== 'unpaid') {
+            return [
+                'success' => false,
+                'message' => 'Penyewaan tidak dapat dihapus karena pembayaran sudah diproses.'
+            ];
         }
-        // Status cancelled boleh dihapus, tetapi tetap harus lolos
-        // pemeriksaan sisa tagihan, denda, dan kembalian di bawah.
-            
-        // 2. Hitung tagihan sewa yang belum dibayar.
-        $totalSewa = max(0, (float) $rental->total_amount);
-        $totalDendaTerlambat = max(0, (float) $rental->late_fee);
-        $totalDendaBarang = max(0, (float) $rental->fine_amount);
-    
-        $totalDibayarSewa = (float) $rental->payments()
-            ->whereIn('type', ['rental', 'deposit'])
-            ->sum('amount');
-    
-        $totalDibayarDenda = (float) $rental->payments()
-            ->whereIn('type', ['late_fee', 'damage_fee'])
-            ->sum('amount');
-    
-        // 3. Periksa sisa tagihan sewa dan denda.
-        $sisaSewa = max(0, $totalSewa - $totalDibayarSewa);
-        $sisaDenda = max(
-            0,
-            ($totalDendaTerlambat + $totalDendaBarang) - $totalDibayarDenda
-        );
-    
-        // 4. Periksa apakah kembalian sudah diberikan.
-        $sisaKembalian = max(
-            0,
-            (float) ($rental->change_amount ?? 0)
-                - (float) ($rental->refund_given ?? 0)
-        );
-    
-        if (
-            $rental->rental_status !== 'cancelled'
-            && ($sisaSewa > 0 || $sisaDenda > 0 || $sisaKembalian > 0)
-        ) {
-            $pesan = 'Penyewaan tidak dapat dihapus karena masih memiliki ';
-    
-            $alasan = [];
-    
-            if ($sisaSewa > 0) {
-                $alasan[] = 'sisa tagihan sewa Rp ' . number_format(
-                    $sisaSewa,
-                    0,
-                    ',',
-                    '.'
-                );
-            }
-    
-            if ($sisaDenda > 0) {
-                $alasan[] = 'sisa denda Rp ' . number_format(
-                    $sisaDenda,
-                    0,
-                    ',',
-                    '.'
-                );
-            }
-    
-            if ($sisaKembalian > 0) {
-                $alasan[] = 'kembalian yang belum diberikan Rp ' . number_format(
-                    $sisaKembalian,
-                    0,
-                    ',',
-                    '.'
-                );
-            }
-    
-            return back()->with('error', $pesan . implode(', ', $alasan) . '.');
+
+        // Pastikan tidak memiliki riwayat pembayaran apa pun.
+        if ($rental->payments()->exists()) {
+            return [
+                'success' => false,
+                'message' => 'Penyewaan tidak dapat dihapus karena masih memiliki riwayat pembayaran.'
+            ];
         }
-    
-        // 5. Simpan data untuk log sebelum penyewaan dihapus.
+
+        // Simpan informasi untuk Log Keseluruhan.
         $oldValues = [
             'invoice_number' => $rental->invoice_number,
             'customer' => optional($rental->customer)->name,
@@ -799,42 +773,93 @@ class RentalController extends Controller
             'rental_status' => $rental->rental_status,
             'payment_status' => $rental->payment_status,
         ];
-    
+
         $rentalId = $rental->id;
         $branchId = $rental->branch_id;
-    
-        // 6. Hapus data terkait hanya setelah semua validasi lolos.
-        DB::transaction(function () use ($rental) {
-            $rental->payments()->delete();
-            $rental->guarantees()->delete();
-            $rental->items()->delete();
-            $rental->returnRecord()->delete();
-            $rental->delete();
-        });
-    
-        // 7. Catat aktivitas penghapusan.
-        ActivityLog::create([
-            'user_id' => auth()->id(),
-            'branch_id' => $branchId,
-            'action' => 'rental_deleted',
-            'model_type' => Rental::class,
-            'model_id' => $rentalId,
-            'description' => \App\Services\ActivityLogFormatter::format(
-                $oldValues,
-                null,
-                Rental::class,
-                $rentalId,
-                'rental_deleted'
-            ),
+
+        // Ambil detail barang sebelum dihapus.
+        $items = $rental->items()->get();
+
+        // Pastikan produk masih ditemukan sebelum mengubah stok.
+        $stockRestorations = [];
+
+        foreach ($items as $item) {
+            if (!$item->product_id || (int) $item->quantity <= 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Penghapusan dibatalkan karena data produk atau jumlah barang tidak valid.'
+                ];
+            }
+
+            $product = Product::withTrashed()
+                ->whereKey($item->product_id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$product) {
+                return [
+                    'success' => false,
+                    'message' => 'Penghapusan dibatalkan karena produk pada detail penyewaan tidak ditemukan.'
+                ];
+            }
+
+            $stockRestorations[] = [
+                'product' => $product,
+                'size' => (string) $item->product_size,
+                'quantity' => (int) $item->quantity,
+            ];
+        }
+
+        // Kembalikan stok sesuai ukuran dan jumlah barang.
+        foreach ($stockRestorations as $restoration) {
+            $restoration['product']->incrementSizeStock(
+                $restoration['size'],
+                $restoration['quantity']
+            );
+        }
+
+        // Hapus data terkait setelah semua pemeriksaan berhasil.
+        $rental->guarantees()->delete();
+        $rental->items()->delete();
+        $rental->returnRecord()->delete();
+        $rental->delete();
+
+        return [
+            'success' => true,
             'old_values' => $oldValues,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
-    
-        return redirect()
-            ->route('rentals.index')
-            ->with('success', 'Penyewaan berhasil dihapus!');
+            'rental_id' => $rentalId,
+            'branch_id' => $branchId,
+        ];
+    });
+
+    if (!$result['success']) {
+        return back()->with('error', $result['message']);
     }
+
+    // Catat penghapusan ke Log Keseluruhan.
+    ActivityLog::create([
+        'user_id' => $user->id,
+        'branch_id' => $result['branch_id'],
+        'action' => 'rental_deleted',
+        'model_type' => Rental::class,
+        'model_id' => $result['rental_id'],
+        'description' => \App\Services\ActivityLogFormatter::format(
+            $result['old_values'],
+            null,
+            Rental::class,
+            $result['rental_id'],
+            'rental_deleted'
+        ),
+        'old_values' => $result['old_values'],
+        'ip_address' => request()->ip(),
+        'user_agent' => request()->userAgent(),
+    ]);
+
+    return redirect()
+        ->route('rentals.index')
+        ->with('success', 'Penyewaan berhasil dihapus!');
+}
+
     public function scanPage()
     {
         return view("rentals.scan");
