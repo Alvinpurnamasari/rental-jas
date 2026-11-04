@@ -5,10 +5,34 @@
 
 @section('content')
 
+<style>
+    .revenue-page { min-width: 0; }
+    .revenue-page .revenue-header { min-width: 0; gap: 1rem; }
+    .revenue-page .stat-card { min-width: 0; overflow-wrap: anywhere; }
+    .revenue-page .revenue-table-wrap { min-width: 0; }
+    .revenue-page .revenue-table { min-width: 640px; }
+    .revenue-mobile-list { display: none; }
+    @media (max-width: 639px) {
+        .revenue-page { padding-left: .75rem; padding-right: .75rem; }
+        .revenue-page .revenue-header { margin-bottom: 1rem; }
+        .revenue-page .revenue-title { font-size: 1.25rem; line-height: 1.75rem; }
+        .revenue-page .stat-card { padding: 1rem; border-radius: 1rem; }
+        .revenue-page .stat-card .font-playfair.text-2xl { font-size: clamp(1.2rem, 5vw, 1.55rem); line-height: 1.35; }
+        .revenue-page .revenue-table-wrap { display: none; }
+        .revenue-mobile-list { display: grid; gap: .75rem; padding: .75rem; }
+        .revenue-mobile-card { min-width: 0; padding: .9rem; border: 1px solid var(--border); border-radius: .9rem; background: var(--surface, #fff); }
+        .revenue-mobile-card .revenue-mobile-date { font-weight: 650; font-size: .875rem; color: var(--text-dark); overflow-wrap: anywhere; }
+        .revenue-mobile-card .revenue-mobile-metric { min-width: 0; }
+        .revenue-mobile-card .revenue-mobile-value { overflow-wrap: anywhere; text-align: right; }
+        .revenue-mobile-total { margin: 0 .75rem .75rem; padding: .9rem; border-radius: .9rem; background: linear-gradient(135deg, #F8F5F0, #EDE7DE); }
+    }
+</style>
+
 {{-- ── PAGE HEADER ── --}}
-<div class="flex items-start justify-between mb-6">
+<div class="revenue-page">
+<div class="revenue-header flex items-start justify-between mb-6">
     <div>
-        <h1 class="font-playfair text-2xl font-semibold" style="color: var(--text-dark)">
+        <h1 class="revenue-title font-playfair text-2xl font-semibold" style="color: var(--text-dark)">
             Laporan Pendapatan
         </h1>
         <p class="text-sm mt-0.5" style="color: var(--text-soft)">
@@ -107,8 +131,8 @@
         </span>
     </div>
 
-    <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm">
+    <div class="revenue-table-wrap overflow-x-auto">
+        <table class="revenue-table w-full text-left text-sm">
             <colgroup>
                 <col style="width: 35%">
                 <col style="width: 20%">
@@ -180,10 +204,48 @@
             @endif
         </table>
     </div>
+
+    {{-- Tampilan kartu khusus layar HP --}}
+    <div class="revenue-mobile-list">
+        @forelse ($revenueData as $row)
+            <article class="revenue-mobile-card">
+                <div class="revenue-mobile-date mb-3">
+                    {{ \Carbon\Carbon::parse($row->date)->isoFormat('dddd, D MMMM Y') }}
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="revenue-mobile-metric flex items-center justify-between gap-3">
+                        <span style="color: var(--text-soft)">Total Rental</span>
+                        <span class="revenue-mobile-value font-medium" style="color: var(--text-dark)">{{ number_format($row->total_rentals) }}</span>
+                    </div>
+                    <div class="revenue-mobile-metric flex items-center justify-between gap-3">
+                        <span style="color: var(--text-soft)">Denda</span>
+                        <span class="revenue-mobile-value font-medium" style="color: #C0392B">
+                            {{ $row->total_late_fee > 0 ? 'Rp ' . number_format($row->total_late_fee, 0, ',', '.') : '—' }}
+                        </span>
+                    </div>
+                    <div class="revenue-mobile-metric flex items-center justify-between gap-3 pt-2 border-t" style="border-color: var(--border)">
+                        <span class="font-semibold" style="color: var(--text-dark)">Pendapatan</span>
+                        <span class="revenue-mobile-value font-bold" style="color: #15803D">Rp {{ number_format($row->total_revenue, 0, ',', '.') }}</span>
+                    </div>
+                </div>
+            </article>
+        @empty
+            <div class="py-8 text-center text-sm" style="color: var(--text-soft)">
+                Tidak ada data untuk periode ini
+            </div>
+        @endforelse
+    </div>
+
+    @if ($revenueData->isNotEmpty())
+        <div class="revenue-mobile-total flex items-center justify-between gap-3 text-sm sm:hidden">
+            <span class="font-bold" style="color: var(--text-dark)">Total Keseluruhan</span>
+            <span class="text-right font-bold" style="color: #15803D">Rp {{ number_format($totalRevenue, 0, ',', '.') }}</span>
+        </div>
+    @endif
 </div>
 
 @push('scripts')
 <script>lucide.createIcons();</script>
 @endpush
-
+</div>
 @endsection

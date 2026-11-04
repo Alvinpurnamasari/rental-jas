@@ -61,7 +61,7 @@
                 <i data-lucide="wrench" class="w-5 h-5"></i>
             </div>
             <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-wide" style="color:var(--text-soft)">Maintenance</p>
+                <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-wide leading-tight break-words [overflow-wrap:anywhere]" style="color:var(--text-soft)">Maintenance</p>
                 <p class="text-2xl font-bold mt-0.5 leading-tight text-red-500">{{ $maintenanceProducts }}</p>
             </div>
         </div>

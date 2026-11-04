@@ -43,6 +43,12 @@
             }
             .rental-create-page .input-group-phone__input { width: 100%; min-width: 0; }
             .rental-create-page #products-container > div { gap: .5rem; }
+            /* Pemilih produk memakai satu baris penuh di HP agar tombol dan panel dropdown tidak menyempit. */
+            .rental-create-page #products-container > div > .relative.flex-1 {
+                flex: 1 1 100%;
+                width: 100%;
+                min-width: 100%;
+            }
             .rental-create-page #products-container .flex.items-center.gap-1 { flex: 1 1 7rem; min-width: 0; }
             .rental-create-page #products-container .flex.items-center.gap-1 select { flex: 1 1 auto; }
             .rental-create-page #products-container .flex.items-center.gap-1 span { white-space: nowrap; }
@@ -201,16 +207,56 @@
             <div id="products-container" class="space-y-3">
                 <template x-for="(item, index) in items" :key="index">
                     <div class="flex gap-3 items-center flex-wrap">
-                        <select x-model="item.product_id" :name="`items[${index}][product_id]`" class="form-input flex-1" :class="{ 'is-error': itemsErrors[index]?.product_id || itemsErrors[index]?.stock_exceeded }" @change="onProductChange(index)">
-                            <option value="">Pilih Produk</option>
-                            @foreach ($products as $product)
-                                @php
-                                    $fallbackSizes = $product->size ? [$product->size => ['stock_total' => $product->stock_total, 'stock_available' => $product->stock_available]] : [];
-                                    $sizesData = $product->sizesData ?: $fallbackSizes;
-                                @endphp
-                                <option value="{{ $product->id }}" data-price="{{ $product->rental_price }}" data-deposit-price="{{ $product->deposit_price }}" data-stock="{{ $product->stock_available }}" data-sizes='@json($sizesData)'>{{ $product->name }} (Stok: {{ $product->stock_available }}) - Rp {{ number_format($product->rental_price, 0, ',', '.') }}/hari</option>
-                            @endforeach
-                        </select>
+                        <div class="relative flex-1 min-w-0" @click.outside="item.productDropdownOpen = false">
+                            <!-- Select asli tetap dipertahankan untuk kompatibilitas form dan perhitungan stok -->
+                            <select x-model="item.product_id" :name="`items[${index}][product_id]`" class="sr-only" tabindex="-1" aria-hidden="true" :class="{ 'is-error': itemsErrors[index]?.product_id || itemsErrors[index]?.stock_exceeded }" @change="onProductChange(index)">
+                                <option value="">Pilih Produk</option>
+                                @foreach ($products as $product)
+                                    @php
+                                        $fallbackSizes = $product->size ? [$product->size => ['stock_total' => $product->stock_total, 'stock_available' => $product->stock_available]] : [];
+                                        $sizesData = $product->sizesData ?: $fallbackSizes;
+                                    @endphp
+                                    <option value="{{ $product->id }}" data-price="{{ $product->rental_price }}" data-deposit-price="{{ $product->deposit_price }}" data-stock="{{ $product->stock_available }}" data-sizes='@json($sizesData)'>{{ $product->name }} (Stok: {{ $product->stock_available }}) - Rp {{ number_format($product->rental_price, 0, ',', '.') }}/hari</option>
+                                @endforeach
+                            </select>
+
+                            <button type="button"
+                                @click="item.productDropdownOpen = !item.productDropdownOpen"
+                                :class="{ 'is-error': itemsErrors[index]?.product_id || itemsErrors[index]?.stock_exceeded }"
+                                class="form-input w-full min-w-0 flex items-center justify-between gap-2 text-left"
+                                aria-label="Pilih produk">
+                                <span class="min-w-0 truncate" x-text="selectedProductLabel(item.product_id) || 'Pilih Produk'"></span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 shrink-0 text-slate-400"></i>
+                            </button>
+
+                            <div x-show="item.productDropdownOpen" x-transition
+                                class="absolute left-0 right-0 top-full z-[70] mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                                style="display:none; max-height:min(65vh, 360px);">
+                                <div class="sticky top-0 border-b border-slate-100 bg-white p-2">
+                                    <input type="search"
+                                        x-model="item.productSearch"
+                                        @click.stop
+                                        placeholder="Cari nama produk..."
+                                        class="form-input w-full"
+                                        autocomplete="off">
+                                </div>
+                                <div class="overflow-y-auto overscroll-contain p-1" style="max-height:calc(min(65vh, 360px) - 58px);">
+                                    <template x-for="product in filteredProductOptions(item.productSearch)" :key="product.id">
+                                        <button type="button"
+                                            @click="chooseProduct(index, product.id)"
+                                            class="flex w-full flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left hover:bg-blue-50"
+                                            :class="String(item.product_id) === String(product.id) ? 'bg-blue-50 text-blue-700' : 'text-slate-700'">
+                                            <span class="w-full truncate text-sm font-medium" x-text="product.name"></span>
+                                            <span class="text-xs text-slate-500" x-text="'Stok: ' + product.stock + ' · Rp ' + product.priceLabel + '/hari'"></span>
+                                        </button>
+                                    </template>
+                                    <div x-show="filteredProductOptions(item.productSearch).length === 0"
+                                        class="px-3 py-5 text-center text-sm text-slate-500">
+                                        Produk tidak ditemukan.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <p x-show="itemsErrors[index]?.product_id" x-transition class="text-xs text-red-400 mt-1">Pilih produk</p>
                         <p x-show="itemsErrors[index]?.stock_exceeded" x-transition class="text-xs text-red-400 mt-1" x-text="itemsErrors[index]?.stock_message || 'Qty melebihi stok tersedia'"></p>
                         <div class="flex items-center gap-1">
@@ -420,7 +466,7 @@
             itemsErrors: [],
             productSizesMap: @json($products->mapWithKeys(fn($p) => [$p->id => ($p->sizesData ?: ($p->size ? [$p->size => ['stock_total' => $p->stock_total, 'stock_available' => $p->stock_available]] : []))])->toArray()),
             items: [
-                { product_id: '', product_size: '', quantity: 1 }
+                { product_id: '', product_size: '', quantity: 1, productDropdownOpen: false, productSearch: '' }
             ],
             dragOver: false,
             stockExceeded: false,
@@ -467,6 +513,36 @@
         onDepositInput() {
             this.depositManualEdited = true;
             this.guaranteeDepositError = false;
+        },
+
+        filteredProductOptions(search = '') {
+            const select = document.querySelector('#products-container select[name$="[product_id]"]');
+            if (!select) return [];
+
+            const query = String(search || '').trim().toLowerCase();
+
+            return Array.from(select.options)
+                .filter(option => option.value)
+                .map(option => ({
+                    id: option.value,
+                    name: option.textContent.trim(),
+                    stock: option.dataset.stock || '0',
+                    priceLabel: new Intl.NumberFormat('id-ID').format(Number(option.dataset.price || 0))
+                }))
+                .filter(product => !query || product.name.toLowerCase().includes(query));
+        },
+
+        selectedProductLabel(productId) {
+            if (!productId) return '';
+            const product = this.filteredProductOptions('').find(item => String(item.id) === String(productId));
+            return product ? product.name : '';
+        },
+
+        chooseProduct(index, productId) {
+            this.items[index].product_id = String(productId);
+            this.items[index].productDropdownOpen = false;
+            this.items[index].productSearch = '';
+            this.onProductChange(index);
         },
 
         getStockForProduct(productId) {
@@ -860,7 +936,7 @@
         },
 
         addItem() {
-            this.items.push({ product_id: '', product_size: '', quantity: 1 });
+            this.items.push({ product_id: '', product_size: '', quantity: 1, productDropdownOpen: false, productSearch: '' });
         },
 
         removeItem(index) {

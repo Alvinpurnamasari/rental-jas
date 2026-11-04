@@ -5,23 +5,23 @@
 @section('subtitle', 'Detail campaign broadcast')
 
 @section('content')
-<div class="space-y-6">
-    <div class="flex items-center justify-between">
+<div class="campaign-detail-page space-y-6">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h2 class="text-lg font-extrabold text-slate-950">Detail Campaign</h2>
             <p class="mt-1 text-sm text-slate-500">Dibuat {{ $campaign->created_at->format('d M Y H:i') }} oleh {{ $campaign->creator->name ?? '-' }}</p>
         </div>
-        <a href="{{ route('broadcast-campaigns.index') }}" class="btn-ghost px-4 py-2">
+        <a href="{{ route('broadcast-campaigns.index') }}" class="btn-ghost w-full justify-center px-4 py-2 sm:w-auto">
             <i data-lucide="arrow-left" class="h-4 w-4"></i>
             Kembali
         </a>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-3">
-        <div class="lg:col-span-2 space-y-6">
-            <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
+    <div class="campaign-main-grid grid min-w-0 gap-6 lg:grid-cols-3">
+        <div class="min-w-0 space-y-6 lg:col-span-2">
+            <div class="campaign-card min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
                 <h3 class="mb-4 text-base font-extrabold text-slate-900">Informasi Campaign</h3>
-                <div class="grid gap-4 md:grid-cols-2">
+                <div class="campaign-info-grid grid min-w-0 gap-4 md:grid-cols-2">
                     <div>
                         <p class="text-xs font-semibold text-slate-500">Nama</p>
                         <p class="mt-1 text-sm font-medium text-slate-900">{{ $campaign->name }}</p>
@@ -49,7 +49,7 @@
                 </div>
             </div>
 
-            <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
+            <div class="campaign-card min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
                 <div class="mb-4 flex items-center justify-between">
                     <h3 class="text-base font-extrabold text-slate-900">Pesan</h3>
                     <button type="button" id="editMessageBtn" class="text-xs font-semibold text-blue-600 hover:text-blue-700">
@@ -62,21 +62,21 @@
                 <div id="messageEdit" class="hidden">
                     <textarea id="messageTextarea" rows="6" class="form-input w-full">{{ $campaign->resolveMessage() }}</textarea>
                     <p class="mt-2 text-xs text-slate-500">Variabel tersedia: <code class="bg-slate-100 px-1 rounded">@{{name}}</code> <code class="bg-slate-100 px-1 rounded">@{{phone}}</code> <code class="bg-slate-100 px-1 rounded">@{{sender_name}}</code></p>
-                    <div class="mt-3 flex gap-2">
-                        <button type="button" id="saveMessageBtn" class="btn-primary px-4 py-2 text-sm">Simpan</button>
-                        <button type="button" id="cancelEditBtn" class="btn-ghost px-4 py-2 text-sm">Batal</button>
+                    <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                        <button type="button" id="saveMessageBtn" class="btn-primary w-full justify-center px-4 py-2 text-sm sm:w-auto">Simpan</button>
+                        <button type="button" id="cancelEditBtn" class="btn-ghost w-full justify-center px-4 py-2 text-sm sm:w-auto">Batal</button>
                     </div>
                 </div>
             </div>
 
-            <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
+            <div class="campaign-card min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-card-sm lg:p-7">
                 <div class="mb-4 flex items-center justify-between">
                     <h3 class="text-base font-extrabold text-slate-900">Daftar Penerima</h3>
                     <span class="badge badge-blue">{{ $campaign->logs->count() }} penerima</span>
                 </div>
                 <p class="mb-4 text-xs text-slate-500">Untuk WhatsApp, buka chat terlebih dahulu, kirim pesan dari WhatsApp, lalu tekan “Saya sudah mengirim” agar progress diperbarui.</p>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
+                <div class="recipient-table-wrap min-w-0 overflow-x-auto">
+                    <table class="recipient-table w-full text-left text-sm">
                         <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                             <tr>
                                 <th class="px-4 py-2 font-semibold">Nama</th>
@@ -106,20 +106,20 @@
                                       
                                     @endphp
                                     <tr class="hover:bg-slate-50/60">
-                                        <td class="px-4 py-2">
-                                            <div class="font-medium text-slate-900">{{ $recipient?->name ?? ($log->recipient_name ?? '-') }}</div>
+                                        <td data-label="Nama" class="px-4 py-2">
+                                            <div class="font-medium text-slate-900 break-words">{{ $recipient?->name ?? ($log->recipient_name ?? '-') }}</div>
                                         </td>
-                                        <td class="px-4 py-2 text-slate-600">{{ $log->phone }}</td>
-                                        <td class="px-4 py-2">{!! $statusBadge !!}</td>
-                                        <td class="px-4 py-2">
+                                        <td data-label="Telepon" class="px-4 py-2 text-slate-600 break-all">{{ $log->phone }}</td>
+                                        <td data-label="Status" class="px-4 py-2">{!! $statusBadge !!}</td>
+                                        <td data-label="Aksi" class="px-4 py-2">
                                             @if($canSend)
-                                                <div class="flex flex-wrap items-center gap-2">
+                                                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                                                     <form method="POST"
                                                           action="{{ route('broadcast-campaigns.send-to-customer', [$campaign, $customerId]) }}"
                                                           class="inline"
                                                           target="_blank">
                                                         @csrf
-                                                        <button type="submit" class="btn-primary px-3 py-1.5 text-xs">
+                                                        <button type="submit" class="btn-primary w-full justify-center px-3 py-2 text-xs sm:w-auto sm:py-1.5">
                                                             <i data-lucide="message-circle" class="mr-1 inline h-3.5 w-3.5"></i>
                                                             Buka WhatsApp
                                                         </button>
@@ -130,7 +130,7 @@
                                                           class="inline"
                                                           onsubmit="return confirm('Konfirmasi bahwa pesan WhatsApp sudah dikirim?')">
                                                         @csrf
-                                                        <button type="submit" class="btn-secondary px-3 py-1.5 text-xs">
+                                                        <button type="submit" class="btn-secondary w-full justify-center px-3 py-2 text-xs sm:w-auto sm:py-1.5">
                                                             <i data-lucide="check" class="mr-1 inline h-3.5 w-3.5"></i>
                                                             Saya sudah mengirim
                                                         </button>
@@ -198,6 +198,110 @@
         </div>
     </div>
 </div>
+
+<style>
+/* Mobile layout for broadcast campaign detail */
+@media (max-width: 639px) {
+    .campaign-detail-page,
+    .campaign-detail-page * {
+        min-width: 0;
+    }
+
+    .campaign-detail-page {
+        width: 100%;
+        overflow-x: clip;
+    }
+
+    .campaign-detail-page .campaign-main-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .campaign-detail-page .campaign-card {
+        padding: 1rem !important;
+        border-radius: 1.25rem;
+    }
+
+    .campaign-detail-page .campaign-info-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .campaign-detail-page .recipient-table-wrap {
+        overflow: visible !important;
+    }
+
+    .campaign-detail-page .recipient-table,
+    .campaign-detail-page .recipient-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .campaign-detail-page .recipient-table thead {
+        display: none;
+    }
+
+    .campaign-detail-page .recipient-table tbody tr:not(:has(td[colspan])) {
+        display: block;
+        margin: 0 0 0.75rem;
+        padding: 0.75rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.9rem;
+        background: #fff;
+    }
+
+    .campaign-detail-page .recipient-table tbody tr:not(:has(td[colspan])) td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        text-align: right;
+        overflow-wrap: anywhere;
+    }
+
+    .campaign-detail-page .recipient-table tbody tr:not(:has(td[colspan])) td::before {
+        content: attr(data-label);
+        flex: 0 0 30%;
+        color: #64748b;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-align: left;
+        text-transform: uppercase;
+    }
+
+    .campaign-detail-page .recipient-table tbody tr:not(:has(td[colspan])) td:last-child {
+        border-bottom: 0;
+    }
+
+    .campaign-detail-page .recipient-table tbody tr:not(:has(td[colspan])) td > * {
+        max-width: 70%;
+    }
+
+    .campaign-detail-page .recipient-table tbody tr:has(td[colspan]) td {
+        display: block;
+        width: 100%;
+    }
+
+    .campaign-detail-page #messageView p,
+    .campaign-detail-page #messageEdit textarea,
+    .campaign-detail-page .campaign-template-content {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .campaign-detail-page .campaign-action-row {
+        align-items: stretch;
+    }
+}
+
+@media (min-width: 640px) {
+    .campaign-detail-page .campaign-main-grid {
+        grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+    }
+}
+</style>
+
 @endsection
 
 @push('scripts')

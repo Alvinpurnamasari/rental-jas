@@ -8,7 +8,7 @@
     <!-- Deactivated Count Alert (Super Admin only) — placed OUTSIDE cards for prominence -->
     @auth
     @if(auth()->user()->isSuperAdmin() && isset($deactivatedCount) && $deactivatedCount > 0)
-    <div class="ds-card mb-6 px-5 py-4 bg-amber-50/80 border border-amber-200 flex items-center gap-3 ds-slide-up">
+    <div class="ds-card mb-6 px-4 sm:px-5 py-4 bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center gap-3 ds-slide-up">
         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
             <i data-lucide="info" class="w-5 h-5 text-amber-600"></i>
         </div>
@@ -17,7 +17,7 @@
                 <strong>{{ $deactivatedCount }}</strong> pelanggan dalam status dinonaktifkan.
             </p>
         </div>
-        <a href="{{ route('customers.index', ['status' => 'deactivated']) }}" class="btn-secondary whitespace-nowrap text-amber-700 border-amber-300 hover:bg-amber-100">
+        <a href="{{ route('customers.index', ['status' => 'deactivated']) }}" class="btn-secondary w-full sm:w-auto justify-center whitespace-nowrap text-amber-700 border-amber-300 hover:bg-amber-100">
             <i data-lucide="eye" class="w-4 h-4"></i>
             Lihat
         </a>
@@ -28,7 +28,7 @@
     <!-- Quick Actions & Filters -->
     <div class="ds-card p-4 sm:p-6 mb-6">
         <div class="space-y-3">
-            <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+            <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3 [&>a]:min-w-0 [&>a]:w-full [&>a]:justify-center [&>a]:px-3 [&>a]:text-sm sm:[&>a]:w-auto sm:[&>a]:px-4">
                 @auth
                 @if(in_array(auth()->user()->role, ['super_admin','admin_toko','sales']))
                 <a href="{{ route('customers.create') }}" class="btn-primary flex w-full items-center justify-center whitespace-nowrap sm:w-auto">
@@ -48,8 +48,8 @@
                 @endauth
             </div>
 
-            <div class="grid w-full grid-cols-2 items-center gap-3 lg:flex lg:flex-nowrap" x-data="{}">
-                <div class="relative col-span-2 min-w-0 lg:min-w-[320px]" style="flex: 3 1 0%;">
+            <div class="customer-filter-grid grid w-full grid-cols-2 items-center gap-3" x-data="{}">
+                <div class="relative col-span-2 min-w-0 w-full lg:min-w-[320px]" style="flex: 3 1 0%;">
                     <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
                     <input type="text" placeholder="Cari nama atau nomor HP..."
                            class="form-input ds-input-icon h-11 w-full min-w-0"
@@ -60,7 +60,7 @@
 
                 @auth
                 @if(auth()->user()->isSuperAdmin())
-                <select class="form-input col-span-1 h-11 w-full min-w-0" style="flex: 0 0 12rem;" id="status-filter" onchange="applyCustomerFilters()">
+                <select class="form-input customer-status-filter col-span-1 h-11 w-full min-w-0" id="status-filter" onchange="applyCustomerFilters()">
                     <option value="active" {{ ($statusFilter ?? request('status', 'active')) === 'active' ? 'selected' : '' }}>Aktif</option>
                     <option value="deactivated" {{ ($statusFilter ?? request('status')) === 'deactivated' ? 'selected' : '' }}>Dinonaktifkan</option>
                     <option value="all" {{ ($statusFilter ?? request('status')) === 'all' ? 'selected' : '' }}>Semua</option>
@@ -70,9 +70,9 @@
 
                 @auth
                 @if(auth()->user()->isSuperAdmin())
-                <select class="form-input col-span-1 h-11 w-full min-w-0" style="flex: 0 0 12rem;" id="bl-filter" onchange="applyCustomerFilters()">
+                <select class="form-input customer-status-filter col-span-1 h-11 w-full min-w-0" id="bl-filter" onchange="applyCustomerFilters()">
                 @else
-                <select class="form-input col-span-1 h-11 w-full min-w-0" style="flex: 0 0 12rem;" id="bl-filter" onchange="applyCustomerFilters()">
+                <select class="form-input customer-status-filter col-span-1 h-11 w-full min-w-0" id="bl-filter" onchange="applyCustomerFilters()">
                 @endif
                 @endauth
                     <option value="">Semua Status Blokir</option>
@@ -85,8 +85,8 @@
 
     <!-- Table Container -->
     <div class="ds-card overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
+            <div class="customer-table-wrap overflow-x-auto">
+                <table class="customer-table w-full text-left text-sm">
                     <colgroup>
                         <col style="width: 22%">
                         <col style="width: 18%">
@@ -111,7 +111,7 @@
                             $isDeactivated = $customer->trashed();
                         @endphp
                         <tr class="transition-colors {{ $isDeactivated ? 'opacity-70 bg-slate-50' : '' }}">
-                            <td class="px-5 py-3.5 text-sm text-slate-700 align-middle">
+                            <td data-label="Nama" class="px-5 py-3.5 text-sm text-slate-700 align-middle">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0 {{ $isDeactivated ? 'grayscale' : '' }}"
                                          style="background-image: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; outline: 3px solid #fff; outline-offset: 0; box-shadow: 0 8px 20px rgba(99, 102, 241, 0.22), 0 3px 8px rgba(99, 102, 241, 0.12);">
@@ -125,10 +125,10 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-5 py-3.5 text-sm text-slate-700 align-middle">
+                            <td data-label="Nomor HP" class="px-5 py-3.5 text-sm text-slate-700 align-middle">
                                 <div class="font-semibold text-bark-light">{{ $customer->phone }}</div>
                             </td>
-                            <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
+                            <td data-label="Status" class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
                                 <div class="flex justify-center">
                                 @if($isDeactivated)
                                 <span class="badge badge-gold">Dinonaktifkan</span>
@@ -139,17 +139,17 @@
                                 @endif
                                 </div>
                             </td>
-                            <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
+                            <td data-label="Jumlah Transaksi" class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
                                 <div class="font-bold text-bark-dark">{{ $customer->rentals_count ?? 0 }}</div>
                             </td>
-                            <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-left">
+                            <td data-label="Tanggal Bergabung" class="px-5 py-3.5 text-sm text-slate-700 align-middle text-left">
                                 <div class="text-bark-light">{{ $customer->created_at ? $customer->created_at->format('d M Y') : '-' }}</div>
                                 @if($isDeactivated && $customer->deleted_at)
                                 <div class="text-xs text-amber-500 mt-1">Dinonaktifkan: {{ $customer->deleted_at->format('d M Y') }}</div>
                                 @endif
                             </td>
-                            <td class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
-                                <div class="flex items-center justify-center gap-2">
+                            <td data-label="Aksi" class="px-5 py-3.5 text-sm text-slate-700 align-middle text-center">
+                                <div class="flex items-center justify-end sm:justify-center gap-2">
                                     @if($isDeactivated)
                                         @auth
                                     @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdminToko())
@@ -240,6 +240,66 @@
             @endif
         </div>
 @endsection
+
+
+<style>
+@media (max-width: 639px) {
+    .customer-table-wrap { overflow: visible; }
+    .customer-table, .customer-table tbody { display: block; width: 100%; }
+    .customer-table thead { display: none; }
+    .customer-table tbody tr:not(:has(td[colspan])) {
+        display: block; margin: 12px; padding: 10px 12px;
+        border: 1px solid var(--border, #e2e8f0); border-radius: 14px;
+        background: var(--ds-card-bg, #fff);
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .04);
+    }
+    .customer-table tbody tr:not(:has(td[colspan])) td {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; width: 100%; padding: 9px 0;
+        border-bottom: 1px solid var(--border, #e2e8f0); text-align: right;
+    }
+    .customer-table tbody tr:not(:has(td[colspan])) td:first-child {
+        justify-content: flex-start; padding-top: 2px;
+    }
+    .customer-table tbody tr:not(:has(td[colspan])) td:last-child {
+        border-bottom: 0; padding-bottom: 2px;
+    }
+    .customer-table tbody tr:not(:has(td[colspan])) td::before {
+        content: attr(data-label); flex: 0 0 38%;
+        color: var(--text-soft, #64748b); font-size: 10px;
+        font-weight: 700; letter-spacing: .04em; text-align: left;
+        text-transform: uppercase;
+    }
+    .customer-table tbody tr:not(:has(td[colspan])) td:first-child::before { display: none; }
+    .customer-table tbody tr:not(:has(td[colspan])) td:first-child > div { min-width: 0; width: 100%; }
+    .customer-table tbody tr:has(td[colspan]) { display: block; }
+    .customer-table tbody tr:has(td[colspan]) td { display: block; width: 100%; }
+}
+</style>
+
+
+<style>
+@media (max-width: 639px) {
+    .customer-filter-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+        width: 100% !important;
+    }
+    .customer-filter-grid > div:first-child {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .customer-filter-grid select.customer-status-filter {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+        box-sizing: border-box !important;
+    }
+}
+</style>
 
 @push('scripts')
 <script>

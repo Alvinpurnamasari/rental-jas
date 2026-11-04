@@ -128,7 +128,7 @@
             @endauth
 
             <!-- Nav -->
-            <nav class="flex-1 overflow-y-auto px-4 py-5">
+            <nav id="sidebarNav" class="flex-1 overflow-y-auto px-4 py-5">
                 @foreach($navGroups as $group => $items)
                     @php
                     $visibleItems = collect($items)->filter(function ($item) use ($canSee) {
@@ -457,6 +457,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 </script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const sidebarNav = document.getElementById('sidebarNav');
+        if (!sidebarNav) return;
+    
+        const menus = Array.from(
+            sidebarNav.querySelectorAll('a.sidebar-item')
+        );
+    
+        const activeIndex = menus.findIndex(menu =>
+            menu.classList.contains('active')
+        );
+    
+        if (activeIndex === -1) return;
+    
+        const activeMenu = menus[activeIndex];
+        const nextMenu = menus[activeIndex + 2];
+    
+        const navRect = sidebarNav.getBoundingClientRect();
+        const activeRect = activeMenu.getBoundingClientRect();
+    
+        // Pastikan menu aktif dan dua menu setelahnya terlihat.
+        if (nextMenu) {
+            const nextRect = nextMenu.getBoundingClientRect();
+    
+            if (nextRect.bottom > navRect.bottom) {
+                sidebarNav.scrollTop += activeRect.top - navRect.top - 24;
+            }
+        }
+    });
+    </script>
 
 @stack('scripts')
 </body>
