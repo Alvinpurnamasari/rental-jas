@@ -21,7 +21,7 @@ class StoreRentalRequest extends FormRequest
             'duration_days'         => 'required|integer|min:1',
             'items'                 => 'required|array|min:1',
             'items.*.product_id'    => 'required|exists:products,id',
-            'items.*.product_size'  => 'required|in:XS,S,M,L,XL,XXL,3XL,4XL,5XL,6XL,7XL',
+            'items.*.product_size'  => 'required|in:XS,S,M,L,XL,XXL,3XL,4XL,5XL,6XL,7XL,39,40,41,42,43,44,45,46,47,48',
             'items.*.quantity'      => 'required|integer|min:1',
             'discount'              => 'nullable|numeric|min:0',
             'notes'                 => 'nullable|string',

@@ -1668,36 +1668,28 @@ async confirmHandover() {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
+
 async function shareRentalReceiptImage() {
     const receiptUrl = @json(route('rentals.receipt.show', $rental));
     const customerName = @json($rental->customer->name ?? 'Customer');
     const invoiceNumber = @json($rental->invoice_number);
 
     if (!navigator.share || !navigator.canShare) {
-        alert(
-            'Browser ini belum mendukung berbagi gambar langsung. ' +
-            'Silakan buka Receipt dan gunakan tombol WhatsApp di halaman tersebut.'
-        );
-        return;
-    }
-
-    if (typeof html2canvas === 'undefined') {
-        alert('Fitur pembuat gambar belum termuat. Muat ulang halaman lalu coba lagi.');
+        alert('Browser ini belum mendukung fitur berbagi gambar langsung.');
         return;
     }
 
     let iframe;
 
     try {
-        // Muat halaman receipt di iframe tersembunyi,
-        // tanpa berpindah dari halaman Detail Penyewaan.
         iframe = document.createElement('iframe');
         iframe.src = receiptUrl;
+
         iframe.style.position = 'fixed';
         iframe.style.left = '-10000px';
         iframe.style.top = '0';
-        iframe.style.width = '430px';
-        iframe.style.height = '1200px';
+        iframe.style.width = '420px';
+        iframe.style.height = '1500px';
         iframe.style.border = '0';
 
         document.body.appendChild(iframe);
@@ -1707,8 +1699,20 @@ async function shareRentalReceiptImage() {
             iframe.onerror = reject;
         });
 
+        const receiptWindow = iframe.contentWindow;
         const receiptDocument = iframe.contentDocument;
-        const receiptCard = receiptDocument?.querySelector(
+
+        if (!receiptDocument || !receiptWindow) {
+            throw new Error('Halaman Receipt tidak dapat dibaca.');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        if (receiptDocument.fonts?.ready) {
+            await receiptDocument.fonts.ready;
+        }
+
+        const receiptCard = receiptDocument.querySelector(
             '.receipt-compact-card'
         );
 
@@ -1716,11 +1720,38 @@ async function shareRentalReceiptImage() {
             throw new Error('Elemen nota tidak ditemukan.');
         }
 
-        const canvas = await html2canvas(receiptCard, {
+        const images = Array.from(receiptCard.querySelectorAll('img'));
+
+        await Promise.all(images.map(async img => {
+            if (img.complete && img.naturalWidth > 0) return;
+
+            if (img.decode) {
+                try {
+                    await img.decode();
+                } catch (e) {}
+            }
+        }));
+
+        // Gunakan html2canvas dari halaman Receipt itu sendiri.
+        const receiptHtml2canvas = receiptWindow.html2canvas;
+
+        if (typeof receiptHtml2canvas !== 'function') {
+            throw new Error(
+                'html2canvas belum tersedia di halaman Receipt.'
+            );
+        }
+
+        const receiptHeight = Math.ceil(
+            receiptCard.getBoundingClientRect().height
+        );
+
+        const canvas = await receiptHtml2canvas(receiptCard, {
             backgroundColor: '#ffffff',
             scale: 2,
             useCORS: true,
-            logging: false
+            logging: false,
+            scrollX: 0,
+            scrollY: 0
         });
 
         const blob = await new Promise((resolve, reject) => {
@@ -1759,9 +1790,10 @@ async function shareRentalReceiptImage() {
         console.error('Gagal berbagi receipt:', error);
 
         alert(
-            'Gambar receipt belum berhasil dibagikan. ' +
-            'Periksa Console browser (F12) untuk melihat detail error.'
+            'Gambar Receipt belum berhasil dibagikan. ' +
+            error.message
         );
+
     } finally {
         if (iframe) iframe.remove();
     }

@@ -444,9 +444,11 @@
         }
     }
     
-.receipt-compact-card .receipt-header-sewajas {
+    .receipt-compact-card .receipt-header-sewajas {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
+    height: auto;
+    min-height: 0;
     padding: 16px 18px 18px;
     color: #ffffff;
     background-color: #245bdc;
@@ -536,12 +538,20 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: 5px 8px;
+    width: 100%;
+    height: auto;
+    min-height: 24px;
     margin-top: 16px;
+    padding: 0 2px;
     color: rgba(255, 255, 255, 0.95);
     font-size: 11px;
-    line-height: 1.5;
+    line-height: 1.6;
+    text-align: center;
+    overflow: visible;
     overflow-wrap: anywhere;
+    box-sizing: border-box;
 }
 
 .receipt-compact-card .receipt-meta-sep {
@@ -575,6 +585,94 @@
         font-size: 9px;
         letter-spacing: 1px;
     }
+}
+
+/* =====================================
+   RECEIPT - PERATAAN STATUS DAN QTY
+===================================== */
+
+/* Baris status */
+.receipt-compact-card .receipt-row-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    width: 100%;
+}
+
+.receipt-compact-card .receipt-row-status .receipt-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+}
+
+.receipt-compact-card .receipt-row-status .receipt-value {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    margin: 0;
+}
+
+/* Badge status */
+.receipt-compact-card .receipt-row-status .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 112px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    box-sizing: border-box;
+    line-height: 1;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* Kartu produk */
+.receipt-compact-card .receipt-item-priced {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    min-height: 82px;
+    margin: 0 0 8px;
+    padding: 14px 16px;
+    box-sizing: border-box;
+}
+
+/* Informasi produk */
+.receipt-compact-card .receipt-item-details {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+}
+
+/* Badge jumlah */
+.receipt-compact-card .receipt-item-priced .receipt-item-qty {
+    display: inline-flex;
+    flex: 0 0 56px;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    min-width: 56px;
+    height: 36px;
+    min-height: 36px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: #e8ebf0;
+    color: #526176;
+    box-sizing: border-box;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
 }
 
 </style>

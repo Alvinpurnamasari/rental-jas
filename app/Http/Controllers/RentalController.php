@@ -485,7 +485,8 @@ if ($user->isSales()) {
         })->get();
 
         $products = Product::whereHas("category", function($q) {
-            $q->where("name", "like", "Jas%");
+            $q->where("name", "like", "Jas%")
+              ->orWhere("name", "Sepatu");
         })->when($user->isSales(), function($q) use ($user) {
             $q->where("branch_id", $user->branch_id);
         })->with('sizes')->get();
@@ -555,7 +556,7 @@ if ($user->isSales()) {
             "guarantee_id_photo" => "nullable|image|mimes:jpeg,png,jpg|max:2048",
             "items" => "required|array|min:1",
             "items.*.product_id" => "required|exists:products,id",
-            "items.*.product_size" => "required|in:XS,S,M,L,XL,XXL,3XL,4XL,5XL,6XL,7XL",
+            'items.*.product_size' => 'required|in:XS,S,M,L,XL,XXL,3XL,4XL,5XL,6XL,7XL,39,40,41,42,43,44,45,46,47,48',
             "items.*.quantity" => "required|integer|min:1",
         ]);
 
@@ -608,7 +609,13 @@ if ($user->isSales()) {
                 $row = $rows->first();
                 $seenKeys[] = $key;
                 $product = Product::whereKey($row["product_id"])->lockForUpdate()->firstOrFail();
-                if (!str_starts_with($product->category?->name ?? "", "Jas")) abort(422, "Invalid category for product.");
+                $categoryName = $product->category?->name ?? "";
+                if (
+                    !str_starts_with($categoryName, "Jas")
+                    && $categoryName !== "Sepatu"
+                ) {
+                    abort(422, "Invalid category for product.");
+                }
 
                 $requestedQty = (int)$row["quantity"];
                 if ($requestedQty <= 0) abort(422, "Quantity must be > 0.");

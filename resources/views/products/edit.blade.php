@@ -75,12 +75,13 @@
                             <label class="block text-sm font-medium mb-1.5" style="color:var(--text-dark)">
                                 Kategori <span class="text-red-500">*</span>
                             </label>
-                            <select name="category_id"
+                            <select name="category_id" id="category_id"
                                     class="form-input @error('category_id') border-red-400 @enderror">
                                 <option value="">Pilih Kategori</option>
                                 @foreach($categories as $cat)
                                     <option value="{{ $cat->id }}"
-                                        {{ old('category_id', $product->category_id) == $cat->id ? 'selected' : '' }}>
+                                            data-name="{{ $cat->name }}"
+                                            {{ old('category_id') == $cat->id ? 'selected' : '' }}>
                                         {{ $cat->name }}
                                     </option>
                                 @endforeach
@@ -194,7 +195,8 @@
                         <h2 class="font-semibold text-sm" style="color:var(--text-dark)">Ukuran & Stok</h2>
                     </div>
 
-                    <div x-data='sizeForm({!! json_encode(old("sizes", $initialSizes ?? []), JSON_UNESCAPED_UNICODE) !!})'>
+                    <div x-data='sizeForm({!! json_encode(old("sizes", $initialSizes ?? []), JSON_UNESCAPED_UNICODE) !!})'
+                         x-init="init()">
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <template x-for="sz in allSizes" :key="sz">
                                 <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
@@ -515,20 +517,67 @@ if (selectAllEdit) {
 // Form ukuran dan stok
 function sizeForm(initialStocks) {
     return {
-        allSizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL', '6XL', '7XL'],
+        clothingSizes: [
+            'XS', 'S', 'M', 'L', 'XL', 'XXL',
+            '3XL', '4XL', '5XL', '6XL', '7XL'
+        ],
+
+        shoeSizes: [
+            '39', '40', '41', '42', '43',
+            '44', '45', '46', '47', '48'
+        ],
+
+        allSizes: [],
         selected: Object.keys(initialStocks || {}),
         stocks: initialStocks || {},
 
-        onToggle(sz, event) {
+        init() {
+            this.updateSizes();
+
+            const category = document.getElementById('category_id');
+
+            if (category) {
+                category.addEventListener('change', () => {
+                    this.updateSizes();
+                });
+            }
+        },
+
+        updateSizes() {
+            const category = document.getElementById('category_id');
+            const selectedOption = category?.selectedOptions[0];
+            const categoryName = (
+                selectedOption?.dataset.name || ''
+            ).toLowerCase();
+
+            const newSizes = categoryName.includes('sepatu')
+                ? this.shoeSizes
+                : this.clothingSizes;
+
+            // Hapus pilihan yang tidak sesuai kategori.
+            this.selected = this.selected.filter(
+                size => newSizes.includes(size)
+            );
+
+            Object.keys(this.stocks).forEach(size => {
+                if (!newSizes.includes(size)) {
+                    delete this.stocks[size];
+                }
+            });
+
+            this.allSizes = newSizes;
+        },
+
+        onToggle(size, event) {
             if (event.target.checked) {
-                if (!this.stocks[sz]) {
-                    this.stocks[sz] = {
+                if (!this.stocks[size]) {
+                    this.stocks[size] = {
                         stock_total: 0,
                         stock_available: 0
                     };
                 }
             } else {
-                delete this.stocks[sz];
+                delete this.stocks[size];
             }
         }
     };
