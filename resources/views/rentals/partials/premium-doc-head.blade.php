@@ -887,6 +887,85 @@
             color: #6B7280;
             line-height: 1.6;
         }
+
+        
+/* =========================================================
+   RECEIPT TOOLBAR - RESPONSIVE MOBILE
+   Menu tersusun 2 kolom, tanpa geser horizontal
+   ========================================================= */
+
+@media (max-width: 640px) {
+    .doc-toolbar-wrapper {
+        width: 100% !important;
+        overflow: visible !important;
+    }
+
+    .doc-toolbar-wrapper::after {
+        display: none !important;
+        content: none !important;
+    }
+
+    .doc-toolbar {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        justify-content: flex-start !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        width: 100% !important;
+        padding: 12px !important;
+        overflow: visible !important;
+    }
+
+    .doc-toolbar .doc-btn {
+        display: inline-flex !important;
+        flex: 0 0 calc(50% - 4px) !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+        min-height: 42px !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 6px !important;
+        padding: 9px 6px !important;
+        font-size: 12px !important;
+        white-space: normal !important;
+        text-align: center !important;
+        box-sizing: border-box !important;
+    }
+
+    .doc-toolbar .doc-btn .btn-text {
+        display: inline !important;
+        white-space: normal !important;
+        line-height: 1.25 !important;
+    }
+
+    .doc-toolbar .doc-btn i {
+        flex-shrink: 0 !important;
+    }
+}
+/* Tombol Kembali - tampilan lebih tegas */
+.doc-toolbar .doc-btn-ghost {
+    color: #245bdc !important;
+    background: #ffffff !important;
+    border: 1px solid #245bdc !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    text-decoration: none !important;
+}
+
+.doc-toolbar .doc-btn-ghost:hover {
+    color: #ffffff !important;
+    background: #245bdc !important;
+    border-color: #245bdc !important;
+}
+
+/* Pastikan panah dan tulisan ikut berwarna */
+.doc-toolbar .doc-btn-ghost span {
+    color: inherit !important;
+}
+
+
     </style>
 </head>
 <body>

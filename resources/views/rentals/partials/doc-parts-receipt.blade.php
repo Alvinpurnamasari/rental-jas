@@ -43,22 +43,39 @@
     $appLogoUrl = '';
 
     if ($appLogo && \Illuminate\Support\Facades\Storage::disk('public')->exists($appLogo)) {
-        $fullPath = storage_path('app/public/' . $appLogo);
-        $extension = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+    $fullPath = storage_path('app/public/' . $appLogo);
+    $extension = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
 
-        $mimeTypes = [
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png'  => 'image/png',
-            'gif'  => 'image/gif',
-            'webp' => 'image/webp',
-            'svg'  => 'image/svg+xml',
-        ];
+    $mimeTypes = [
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png'  => 'image/png',
+        'gif'  => 'image/gif',
+    ];
 
-        $mimeType = $mimeTypes[$extension] ?? 'image/png';
+    if (isset($mimeTypes[$extension])) {
+        $mimeType = $mimeTypes[$extension];
 
         $appLogoUrl = 'data:' . $mimeType . ';base64,'
             . base64_encode(file_get_contents($fullPath));
+    }
+}
+
+
+    // PDF fallback logo: embed local public logo as Base64 for DomPDF.
+    if (empty($appLogoUrl)) {
+        $fallbackLogoPath = public_path('images/sewajas-logo.png');
+
+        if (is_file($fallbackLogoPath)) {
+            $fallbackMime = function_exists('mime_content_type')
+                ? mime_content_type($fallbackLogoPath)
+                : 'image/png';
+
+            if (in_array($fallbackMime, ['image/png', 'image/jpeg', 'image/gif'], true)) {
+                $appLogoUrl = 'data:' . $fallbackMime . ';base64,'
+                    . base64_encode(file_get_contents($fallbackLogoPath));
+            }
+        }
     }
 
     $companyAddress = \App\Services\SettingsService::get('company_address');
@@ -81,104 +98,181 @@
     }
 @endphp
 
+@if(($outputMode ?? 'browser') === 'pdf')
+<div class="receipt-compact-wrapper receipt-pdf-wrapper">
+    <div class="receipt-compact-card receipt-pdf-card">
+        {{-- HEADER --}}
+        <div class="receipt-header-sewajas receipt-pdf-header">
+            <table class="pdf-brand-table">
+                <tr>
+                    <td class="pdf-logo-cell">
+                        <div class="receipt-logo-box">
+                            @if($appLogoUrl)
+                                <img src="{{ $appLogoUrl }}" alt="Logo {{ $appName }}" class="receipt-logo-image">
+                            @else
+                                <span class="pdf-logo-fallback">SJ</span>
+                            @endif
+                        </div>
+                    </td>
+                    <td class="pdf-brand-cell">
+                        <div class="receipt-brand-title">{{ $appName }}</div>
+                        <div class="receipt-brand-subtitle">Sewajas</div>
+                    </td>
+                    <td class="pdf-receipt-cell">RECEIPT</td>
+                </tr>
+            </table>
+            <div class="pdf-header-meta">
+                <span>{{ $receiptNumber }}</span>
+                <span class="pdf-meta-divider">|</span>
+                <span>{{ $receiptDate }}</span>
+            </div>
+        </div>
+
+        {{-- CUSTOMER + BOOKING --}}
+        <div class="receipt-section pdf-info-section">
+            <table class="pdf-info-table">
+                <tr><td class="pdf-label">Customer</td><td class="pdf-value">{{ $customerName }}</td></tr>
+                <tr><td class="pdf-label">Invoice</td><td class="pdf-value">{{ $invoiceNumber }}</td></tr>
+                <tr><td class="pdf-label">Sewa</td><td class="pdf-value">{{ $rentalDate }}</td></tr>
+                <tr><td class="pdf-label">Kembali</td><td class="pdf-value">{{ $returnDueDate }}</td></tr>
+                @if($actualReturnDate)
+                    <tr><td class="pdf-label">Dikembalikan</td><td class="pdf-value">{{ $actualReturnDate }}</td></tr>
+                @endif
+                <tr class="pdf-status-row">
+                    <td class="pdf-label">Status</td>
+                    <td class="pdf-value"><span class="status-badge {{ $statusBadgeClass }}">{{ $statusBadge }}</span></td>
+                </tr>
+            </table>
+        </div>
+
+        {{-- ITEMS --}}
+        <div class="receipt-section pdf-items-section">
+            <div class="receipt-section-title">PRODUK YANG DISEWA</div>
+            <div class="receipt-items">
+                @forelse($rental->items as $item)
+                    @php
+                        $product = $item->product;
+                        $quantity = max(1, (int) ($item->quantity ?? 1));
+                        $unitPrice = $item->unit_price
+                            ?? $item->price
+                            ?? optional($product)->rental_price
+                            ?? optional($product)->price
+                            ?? 0;
+                        $unitPrice = (float) $unitPrice;
+                    @endphp
+                    <table class="pdf-product-table">
+                        <tr>
+                            <td class="pdf-product-details">
+                                <div class="receipt-item-name">{{ $product->name ?? ('Produk #' . $item->product_id) }}</div>
+                                <div class="receipt-item-price">
+                                    Rp {{ number_format($unitPrice, 0, ',', '.') }}
+                                    <span class="receipt-item-price-label">/ item</span>
+                                </div>
+                            </td>
+                            <td class="pdf-quantity-cell">
+                                <span class="receipt-item-qty">x{{ $quantity }}</span>
+                            </td>
+                        </tr>
+                    </table>
+                @empty
+                    <div class="receipt-item-empty">Belum ada produk pada transaksi ini.</div>
+                @endforelse
+            </div>
+        </div>
+
+        {{-- QR CODE --}}
+        <div class="receipt-section receipt-qr-section pdf-qr-section">
+            <div class="receipt-qr-wrapper">
+                @if(!empty($qrBase64))
+                    <img src="{{ $qrBase64 }}" alt="QR Code detail rental" class="receipt-qr-image">
+                @endif
+            </div>
+            <div class="receipt-qr-label">Scan untuk detail rental</div>
+        </div>
+
+        {{-- PETUGAS --}}
+        <div class="receipt-section receipt-petugas-section">
+            <table class="pdf-info-table">
+                <tr><td class="pdf-label">Dibuat oleh</td><td class="pdf-value">{{ $createdByName }}</td></tr>
+                @if($processedByName)
+                    <tr><td class="pdf-label">Diproses oleh</td><td class="pdf-value">{{ $processedByName }}</td></tr>
+                @endif
+            </table>
+        </div>
+
+        {{-- TOTAL --}}
+        <div class="receipt-total-section">
+            <table class="pdf-total-table">
+                <tr>
+                    <td class="pdf-total-label">TOTAL</td>
+                    <td class="pdf-total-value">Rp {{ number_format($totalAmount, 0, ',', '.') }}</td>
+                </tr>
+            </table>
+        </div>
+
+        {{-- FOOTER --}}
+        <div class="receipt-footer">
+            @if($companyAddress || $companyPhone || $companyWebsite)
+                <div class="receipt-company-info">
+                    @if($companyAddress)<div class="receipt-company-line">{{ $companyAddress }}</div>@endif
+                    @if($companyPhone)<div class="receipt-company-line">{{ $companyPhone }}</div>@endif
+                    @if($companyWebsite)<div class="receipt-company-line">{{ $companyWebsite }}</div>@endif
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+@else
 <div class="receipt-compact-wrapper">
     <div class="receipt-compact-card">
 
-       
-{{-- HEADER --}}
+ {{-- HEADER --}}
 <div class="receipt-header receipt-header-sewajas">
-    <div class="receipt-brand-row">
-        <div class="receipt-logo-box">
-            @if($appLogoUrl)
-                <img
-                    src="{{ $appLogoUrl }}"
-                    alt="Logo Sewajas"
-                    class="receipt-logo-image"
-                >
-            @else
- 
-<div class="receipt-logo-fallback">
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 100 120"
-        width="36"
-        height="36"
-        role="img"
-        aria-label="Ikon jas formal"
-    >
-        <!-- Siluet utama jas -->
-        <path
-            fill="#ffffff"
-            d="M35 7
-               L20 17
-               L8 27
-               L1 111
-               L23 111
-               L31 54
-               L34 76
-               L28 116
-               L72 116
-               L66 76
-               L69 54
-               L77 111
-               L99 111
-               L92 27
-               L80 17
-               L65 7
-               L50 22 Z"
-        />
 
-        <!-- Kerah kiri -->
-        <path
-            fill="#245bdc"
-            d="M35 7 L50 22 L43 42 L31 20 Z"
-        />
+    <table class="receipt-brand-table">
+        <tr>
+            <td class="receipt-brand-logo-cell">
+                <div class="receipt-logo-box">
+                    @if($appLogoUrl)
+                        <img
+                            src="{{ $appLogoUrl }}"
+                            alt="Logo {{ $appName }}"
+                            class="receipt-logo-image"
+                        >
+                    @else
+                        <span class="receipt-logo-fallback">
+                            <img
+                            src="{{ asset('images/sewajas-logo.png') }}"
+                            alt="Logo SewaJas"
+                            class="receipt-logo-image"
+                        >
+                        </span>
+                    @endif
+                </div>
+            </td>
 
-        <!-- Kerah kanan -->
-        <path
-            fill="#245bdc"
-            d="M65 7 L50 22 L57 42 L69 20 Z"
-        />
+            <td class="receipt-brand-text-cell">
+                <div class="receipt-brand-title">
+                    {{ $appName }}
+                </div>
 
-        <!-- Bukaan tengah jas -->
-        <path
-            fill="#245bdc"
-            d="M46 34 L50 24 L54 34 L51 99 L50 111 L49 99 Z"
-        />
+                <div class="receipt-brand-subtitle">
+                    Sewajas
+                </div>
+            </td>
 
-        <!-- Saku dada -->
-        <path
-            fill="#245bdc"
-            d="M65 43 L79 40 L72 32 Z"
-        />
-
-        <!-- Garis tepi kerah -->
-        <path
-            d="M35 7 L49 65 M65 7 L51 65"
-            fill="none"
-            stroke="#245bdc"
-            stroke-width="2"
-            stroke-linejoin="round"
-        />
-    </svg>
-</div>
-
-            @endif
-        </div>
-
-        <div class="receipt-brand-text">
-            <div class="receipt-brand-title">Sewajas</div>
-            <div class="receipt-brand-subtitle">Sewajas</div>
-        </div>
-
-        <div class="receipt-header-label">RECEIPT</div>
-    </div>
+            <td class="receipt-header-label-cell">
+                <span class="receipt-header-label">RECEIPT</span>
+            </td>
+        </tr>
+    </table>
 
     <div class="receipt-header-meta">
         <span>{{ $receiptNumber }}</span>
         <span class="receipt-meta-sep">|</span>
         <span>{{ $receiptDate }}</span>
     </div>
+
 </div>
 
 
@@ -342,6 +436,9 @@
 
     </div>
 </div>
+
+
+@endif
 
 <style>
     .receipt-compact-card .receipt-item-priced {

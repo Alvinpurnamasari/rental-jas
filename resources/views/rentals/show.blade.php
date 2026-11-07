@@ -80,14 +80,17 @@
                 
 
                 <button
-                    type="button"
-                    onclick="shareRentalReceiptImage()"
-                    title="Bagikan gambar receipt ke WhatsApp"
-                    class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                >
-                    WA Receipt
-                </button>
-            
+    type="button"
+    id="downloadRentalPdfBtn"
+    data-pdf-url="{{ route('rentals.receipt.pdf', $rental) }}"
+    data-customer-name="{{ $rental->customer->name ?? 'Pelanggan' }}"
+    data-invoice-number="{{ $rental->invoice_number }}"
+    data-customer-phone="{{ $rental->customer->phone ?? '' }}"
+    class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 transition hover:bg-green-100"
+>
+Buka Chat WhatsApp
+</button>
+
                 <a href="{{ route('rentals.reminder', $rental) }}" class="rental-action-btn inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">Reminder</a>
                 
 
@@ -177,30 +180,89 @@
                 return false;
             }
 
-            function downloadPdfAndOpenWa(pdfUrl, customerName, invoiceNumber, customerPhone) {
-                if (!customerPhone) {
-                    alert('Nomor WhatsApp customer tidak tersedia.');
-                    return;
-                }
+            function normalizeWhatsAppNumber(phone) {
+    let number = String(phone || '').replace(/\D/g, '');
 
-                var link = document.createElement('a');
-                link.href = pdfUrl;
-                link.download = '';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+    if (!number) {
+        return '';
+    }
 
-                var message = encodeURIComponent(
-                    "Halo " + customerName + ",\\n\\n" +
-                    "Berikut receipt sewa Anda " + invoiceNumber + ". " +
-                    "Mohon cek file PDF yang baru saja di-download, lalu lampirkan di sini ya.\\n\\n" +
-                    "Terima kasih."
-                );
+    if (number.startsWith('0')) {
+        number = '62' + number.substring(1);
+    } else if (number.startsWith('8')) {
+        number = '62' + number;
+    }
 
-                setTimeout(function() {
-                    window.open("https://wa.me/" + customerPhone + "?text=" + message, '_blank');
-                }, 500);
-            }
+    return number;
+}
+
+function downloadPdfAndOpenWa(pdfUrl, customerName, invoiceNumber, customerPhone) {
+    const phone = normalizeWhatsAppNumber(customerPhone);
+
+    if (!phone) {
+        alert('Nomor WhatsApp pelanggan belum tersedia.');
+        return;
+    }
+
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `Nota-${invoiceNumber}.pdf`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    openCustomerWhatsApp(customerName, invoiceNumber, customerPhone);
+}
+
+function openCustomerWhatsApp(customerName, invoiceNumber, customerPhone) {
+    const phone = normalizeWhatsAppNumber(customerPhone);
+
+    if (!phone) {
+        alert('Nomor WhatsApp pelanggan belum tersedia.');
+        return;
+    }
+
+    const message = encodeURIComponent(
+        `Halo ${customerName},\n\n` +
+        `Berikut nota penyewaan Anda.\n` +
+        `Nomor invoice: ${invoiceNumber}\n\n` +
+        `Silakan cek nota PDF yang sudah diunduh dan lampirkan pada chat ini.\n\n` +
+        `Terima kasih telah menggunakan layanan SewaJas.`
+    );
+
+    window.open(
+        `https://wa.me/${phone}?text=${message}`,
+        '_blank'
+    );
+}
+
+// Hubungkan tombol dengan fungsi masing-masing
+document.addEventListener('DOMContentLoaded', function () {
+    const downloadButton = document.getElementById('downloadRentalPdfBtn');
+    const whatsappButton = document.getElementById('openCustomerWhatsAppBtn');
+
+    if (downloadButton) {
+        downloadButton.addEventListener('click', function () {
+            downloadPdfAndOpenWa(
+                this.dataset.pdfUrl,
+                this.dataset.customerName,
+                this.dataset.invoiceNumber,
+                this.dataset.customerPhone
+            );
+        });
+    }
+
+    if (whatsappButton) {
+        whatsappButton.addEventListener('click', function () {
+            openCustomerWhatsApp(
+                this.dataset.customerName,
+                this.dataset.invoiceNumber,
+                this.dataset.customerPhone
+            );
+        });
+    }
+});
             </script>
             @endpush
 

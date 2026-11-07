@@ -11,7 +11,7 @@
 <div class="no-print doc-toolbar-wrapper">
     <div class="no-print doc-toolbar">
         <a class="doc-btn doc-btn-ghost" href="{{ route('rentals.show', $rental) }}">
-            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            <span aria-hidden="true" style="font-size: 18px; line-height: 1;">←</span>
             <span class="btn-text">Kembali</span>
         </a>
 
@@ -26,7 +26,7 @@
         </button>
 
         <button
-            class="doc-btn doc-btn-whatsapp"
+            class="doc-btn doc-btn-secondary"
             type="button"
             onclick="shareReceiptToWa(
                 @js($rental->customer->name ?? 'Customer'),
@@ -34,8 +34,22 @@
                 @js(route('rentals.receipt.pdf', $rental))
             )"
         >
+            <i data-lucide="image" class="w-4 h-4"></i>
+            <span class="btn-text">Share Nota Gambar</span>
+        </button>
+
+        <button
+            class="doc-btn doc-btn-whatsapp"
+            type="button"
+            onclick="downloadPdfAndOpenWa(
+                @js(route('rentals.receipt.pdf', $rental)),
+                @js($rental->customer->name ?? 'Pelanggan'),
+                @js($rental->invoice_number),
+                @js($rental->customer->phone ?? '')
+            )"
+        >
             <i data-lucide="message-circle" class="w-4 h-4"></i>
-            <span class="btn-text">WhatsApp</span>
+            <span class="btn-text">Chat WhatsApp</span>
         </button>
 
         <button
@@ -154,7 +168,66 @@ async function shareReceiptToWa(customerName, invoiceNumber, pdfUrl) {
         alert('Gagal membuat atau membagikan gambar nota. Silakan coba lagi.');
     }
 }
+function normalizeWhatsAppNumber(phone) {
+    let number = String(phone || '').replace(/\D/g, '');
 
+    if (number.startsWith('0')) {
+        number = '62' + number.substring(1);
+    } else if (number.startsWith('8')) {
+        number = '62' + number;
+    }
+
+    return number;
+}
+
+function openCustomerWhatsApp(customerName, invoiceNumber, customerPhone) {
+    const phone = normalizeWhatsAppNumber(customerPhone);
+
+    if (!phone) {
+        alert('Nomor WhatsApp pelanggan belum tersedia.');
+        return;
+    }
+
+    const message =
+        `Halo ${customerName},\n\n` +
+        `Berikut nota penyewaan Anda.\n` +
+        `Nomor invoice: ${invoiceNumber}\n\n` +
+        `Silakan cek nota yang telah disiapkan dan lampirkan pada chat ini.\n\n` +
+        `Terima kasih telah menggunakan layanan SewaJas.`;
+
+    const whatsappUrl =
+        `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, '_blank');
+}
+function downloadPdfAndOpenWa(pdfUrl, customerName, invoiceNumber, customerPhone) {
+    const phone = normalizeWhatsAppNumber(customerPhone);
+
+    if (!phone) {
+        alert('Nomor WhatsApp pelanggan belum tersedia.');
+        return;
+    }
+
+    const message =
+        `Halo ${customerName},\n\n` +
+        `Berikut nota penyewaan Anda.\n` +
+        `Nomor invoice: ${invoiceNumber}\n\n` +
+        `Terima kasih telah menggunakan layanan SewaJas.`;
+
+    const waUrl =
+        `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+    // Download PDF menggunakan URL Laravel secara langsung.
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `Nota-${invoiceNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    // Buka WhatsApp pelanggan.
+    window.open(waUrl, '_blank');
+}
 async function copyReceiptLink(url) {
     try {
         await navigator.clipboard.writeText(url);
