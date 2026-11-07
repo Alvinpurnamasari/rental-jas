@@ -60,7 +60,7 @@
 
                 @auth
                 @if(auth()->user()->isSuperAdmin())
-                <select class="form-input customer-status-filter col-span-1 h-11 w-full min-w-0" id="status-filter" onchange="applyCustomerFilters()">
+                <select class="form-input customer-status-filter col-span-2 lg:col-span-1 h-11 w-full min-w-0 !pl-3 !pr-8 text-sm" id="bl-filter" onchange="applyCustomerFilters()">
                     <option value="active" {{ ($statusFilter ?? request('status', 'active')) === 'active' ? 'selected' : '' }}>Aktif</option>
                     <option value="deactivated" {{ ($statusFilter ?? request('status')) === 'deactivated' ? 'selected' : '' }}>Dinonaktifkan</option>
                     <option value="all" {{ ($statusFilter ?? request('status')) === 'all' ? 'selected' : '' }}>Semua</option>
@@ -70,15 +70,24 @@
 
                 @auth
                 @if(auth()->user()->isSuperAdmin())
-                <select class="form-input customer-status-filter col-span-1 h-11 w-full min-w-0" id="bl-filter" onchange="applyCustomerFilters()">
+                    <select
+                        class="form-input customer-status-filter col-span-2 lg:col-span-1 h-11 w-full min-w-0 !pl-3 !pr-8 text-sm"
+                        id="bl-filter"
+                        onchange="applyCustomerFilters()"
+                    >
                 @else
-                <select class="form-input customer-status-filter col-span-1 h-11 w-full min-w-0" id="bl-filter" onchange="applyCustomerFilters()">
+                    <select
+                        class="form-input customer-status-filter col-span-2 lg:col-span-1 h-11 w-full min-w-0 !pl-3 !pr-8 text-sm"
+                        id="bl-filter"
+                        onchange="applyCustomerFilters()"
+                    >
                 @endif
-                @endauth
-                    <option value="">Semua Status Blokir</option>
-                    <option value="normal" {{ request('bl_status') === 'normal' ? 'selected' : '' }}>Normal</option>
-                    <option value="blacklisted" {{ request('bl_status') === 'blacklisted' ? 'selected' : '' }}>Diblokir</option>
-                </select>
+            @endauth
+
+                <option value="">Semua Status Blokir</option>
+                <option value="normal" {{ request('bl_status') === 'normal' ? 'selected' : '' }}>Normal</option>
+                <option value="blacklisted" {{ request('bl_status') === 'blacklisted' ? 'selected' : '' }}>Diblokir</option>
+            </select>
             </div>
         </div>
     </div>
@@ -298,6 +307,15 @@
         flex: initial !important;
         box-sizing: border-box !important;
     }
+    .customer-status-filter {
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    padding-right: 40px !important;
+    padding-left: 14px !important;
+    font-size: 13px !important;
+}
 }
 </style>
 
