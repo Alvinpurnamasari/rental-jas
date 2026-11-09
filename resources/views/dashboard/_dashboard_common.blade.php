@@ -235,10 +235,7 @@
                         <i data-lucide="reply" class="h-4 w-4 text-primary"></i>
                         <span class="font-bold">Pengembalian</span>
                     </a>
-                    <a href="{{ route('reports.transactions') }}" class="ds-hover-lift btn btn-secondary min-w-0 w-full lg:w-auto justify-center text-center">
-                        <i data-lucide="receipt" class="h-4 w-4 text-primary"></i>
-                        <span class="font-bold">Transaksi Saya</span>
-                    </a>
+                    
                 @endif
             </div>
         </div>
